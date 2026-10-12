@@ -1,0 +1,54 @@
+# Kitchen iPad (portrait-ish)
+id: kitchen-ipad
+name: Kitchen iPad
+grid: { cols: 6, rows: 8 }
+theme: auto
+lite: false
+widgets:
+  - id: clock
+    type: clock
+    at: [0, 0, 4, 2]
+    format24: false
+    showDate: true
+
+  - id: weather
+    type: entity
+    at: [4, 0, 2, 2]
+    entity: weather.home
+    label: Outside
+
+  - id: lights
+    type: lights
+    title: Lights
+    at: [0, 2, 3, 3]
+    entities: [light.kitchen, light.living_room]
+
+  - id: front-door
+    type: camera
+    title: Front door
+    at: [3, 2, 3, 3]
+    entity: camera.front_door
+    refreshSec: 5
+
+  - id: buttons
+    type: buttons
+    at: [0, 5, 6, 2]
+    buttons:
+      - label: All lights off
+        icon: "🌙"
+        action: { kind: ha, domain: light, service: turn_off, data: { entity_id: [light.living_room, light.kitchen, light.office] } }
+      - label: Desk fan
+        icon: "🌀"
+        action: { kind: ha, domain: switch, service: toggle, data: { entity_id: switch.desk_fan } }
+      - label: Play / Pause
+        icon: "⏯️"
+        action: { kind: agent, pc: gaming-pc, action: play-pause }
+      - label: Wake PC
+        icon: "⚡"
+        action: { kind: wol, pc: gaming-pc }
+
+  - id: note
+    type: text
+    at: [0, 7, 6, 1]
+    text: Bins go out Thursday night
+    size: s

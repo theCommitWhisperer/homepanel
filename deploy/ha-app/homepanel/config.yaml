@@ -1,0 +1,38 @@
+name: HomePanel
+version: "0.1.0"
+slug: homepanel
+description: Dashboard server for wall tablets and screens (PC temps, doorbell pop-ups, lights, buttons)
+url: https://github.com/homepanel/homepanel
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+boot: auto
+# host network: Wake-on-LAN broadcasts and real client IPs (home-only actions) need it
+host_network: true
+ingress: false
+ports:
+  8080/tcp: 8080
+ports_description:
+  8080/tcp: HomePanel (screens + /admin)
+webui: http://[HOST]:[PORT:8080]/admin
+homeassistant_api: true
+hassio_api: true
+services:
+  - mqtt:want
+map:
+  - share:rw   # /share/homepanel/media can be used for gifs/images
+options:
+  admin_password: ""
+  log_level: info
+schema:
+  admin_password: password
+  ai_provider: list(gemini|groq|openrouter|ollama|lmstudio|custom)?
+  ai_model: str?
+  ai_base_url: url?
+  ai_api_key: password?
+  mqtt_url: str?
+  mqtt_username: str?
+  mqtt_password: password?
+  log_level: list(debug|info|warn|error)

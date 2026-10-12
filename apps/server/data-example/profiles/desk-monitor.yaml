@@ -1,0 +1,71 @@
+# Desk monitor next to the gaming PC (1920x1080-ish, landscape)
+id: desk-monitor
+name: Desk monitor
+grid: { cols: 12, rows: 8 }
+theme: dark
+lite: false
+idle:
+  after: 10m
+  show: clock
+widgets:
+  - id: clock
+    type: clock
+    at: [0, 0, 4, 2]
+    format24: true
+    showDate: true
+
+  - id: temps
+    type: pc-temps
+    title: Gaming PC
+    at: [4, 0, 5, 4]
+    pc: gaming-pc
+    sensors: [cpu_package, gpu_core, gpu_hotspot, nvme0_temp, nvme1_temp, motherboard]
+    warnAt: 80
+    critAt: 90
+    style: gauges
+
+  - id: drives
+    type: pc-drives
+    title: Drives
+    at: [9, 0, 3, 4]
+    pc: gaming-pc
+    openActions:
+      "C:": open-drive-c
+      "D:": open-drive-d
+      "E:": open-projects
+
+  - id: lights
+    type: lights
+    title: Lights
+    at: [0, 2, 4, 3]
+    entities: [light.living_room, light.kitchen, light.office]
+
+  - id: pc-buttons
+    type: buttons
+    title: PC
+    at: [4, 4, 5, 4]
+    pc: gaming-pc
+
+  - id: shortcuts
+    type: buttons
+    title: Shortcuts
+    at: [0, 5, 4, 3]
+    buttons:
+      - label: Desk fan
+        icon: "🌀"
+        action: { kind: ha, domain: switch, service: toggle, data: { entity_id: switch.desk_fan } }
+      - label: Wake PC
+        icon: "⚡"
+        action: { kind: wol, pc: gaming-pc }
+      - label: Studio
+        icon: "🎮"
+        action: { kind: agent, pc: gaming-pc, action: launch-studio }
+      - label: Mute mic
+        icon: "🎙️"
+        action: { kind: agent, pc: gaming-pc, action: mute-mic }
+
+  - id: gif
+    type: media
+    at: [9, 4, 3, 4]
+    src: /media/homepanel.gif
+    fit: contain

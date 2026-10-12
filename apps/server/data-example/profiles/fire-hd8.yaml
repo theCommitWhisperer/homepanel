@@ -1,0 +1,36 @@
+# Fire HD 8 (10th gen) — low-power "lite" profile: no animations, snapshots instead of video
+id: fire-hd8
+name: Fire HD 8
+grid: { cols: 4, rows: 6 }
+theme: dark
+lite: true
+widgets:
+  - id: clock
+    type: clock
+    at: [0, 0, 4, 2]
+    format24: true
+    showDate: true
+
+  - id: lights
+    type: lights
+    title: Lights
+    at: [0, 2, 4, 2]
+    entities: [light.living_room, light.kitchen, light.office]
+
+  - id: buttons
+    type: buttons
+    at: [0, 4, 4, 2]
+    buttons:
+      - label: All off
+        icon: "🌙"
+        action: { kind: ha, domain: light, service: turn_off, data: { entity_id: [light.living_room, light.kitchen, light.office] } }
+      - label: Desk fan
+        icon: "🌀"
+        action: { kind: ha, domain: switch, service: toggle, data: { entity_id: switch.desk_fan } }
+      - label: Lock PC
+        icon: "🔒"
+        action: { kind: agent, pc: gaming-pc, action: lock }
+      - label: PC sleep
+        icon: "😴"
+        action: { kind: agent, pc: gaming-pc, action: sleep }
+        confirm: true

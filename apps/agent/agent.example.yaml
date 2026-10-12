@@ -1,0 +1,116 @@
+# HomePanel PC agent configuration
+#
+# Windows: C:\ProgramData\HomePanel\agent.yaml   (the installer writes this for you)
+# Linux:   ~/.config/homepanel/agent.yaml
+# Check it with:  homepanel-agent check-config
+# Paths may use %VARS% on Windows (%USERPROFILE%, %LOCALAPPDATA%) and ~ / $VARS on Linux.
+
+# Short id for this computer: lowercase letters, digits, dashes. Must match the id you entered in
+# the HomePanel admin page ("Computers" → "Add computer").
+pcId: gaming-pc
+name: Gaming PC
+
+mqtt:
+  url: mqtt://homepanel.local:1883    # the machine running Home Assistant / Mosquitto
+  username: homepanel
+  password: change-me
+
+# Shared secret shown once by the admin page when you add this computer. Commands from the
+# dashboard are signed with it; anything with a wrong signature is ignored.
+key: paste-the-key-from-the-admin-page-here
+
+# Where sensors come from: auto = LibreHardwareMonitor on Windows, /sys/class/hwmon on Linux.
+sensorSource: auto
+lhmUrl: http://localhost:8085/data.json
+# lhmAuth: { username: admin, password: secret }   # only if you enabled auth in LHM's web server
+
+publishIntervalMs: 2000     # how often sensor values are sent (ms)
+drivesIntervalMs: 60000     # how often drive free space is sent (ms)
+
+# Which sensors to publish: "auto" (temps, loads, fans, power, clocks — no voltages or per-thread
+# loads) or a list of ids / wildcards. Run `homepanel-agent list-sensors` to see the ids.
+sensors: auto
+# sensors: [cpu_package, cpu_total_load, gpu_*, nvme_*_temp, fan_*]
+
+# Which sensors become Home Assistant entities (via MQTT discovery).
+# "default" = every temperature + cpu_total_load, gpu_core_load, ram_load. "none" disables it.
+ha_sensors: default
+# ha_sensors: [cpu_package, gpu_core, gpu_hotspot, cpu_total_load]
+
+log:
+  level: info
+  # file: C:\ProgramData\HomePanel\agent.log
+
+# ---------------------------------------------------------------------------------------------
+# Buttons this PC offers to the dashboard. Only these can ever run — the dashboard just sends
+# the id. Fields:
+#   type:  open | launch | keys | script | url | system
+#   label: text on the button (defaults to the id)
+#   icon:  an emoji
+#   guard: confirm            → the screen asks "are you sure?"
+#          home-only          → refused from screens outside your home network
+#          confirm+home-only  → both
+# ---------------------------------------------------------------------------------------------
+actions:
+  # --- folders -----------------------------------------------------------------------------
+  open-drive-c:      { type: open, path: 'C:\',                          label: "C: drive",  icon: "💽" }
+  open-drive-d:      { type: open, path: 'D:\',                          label: "D: drive",  icon: "💾" }
+  open-downloads:    { type: open, path: '%USERPROFILE%\Downloads',      label: Downloads,   icon: "📥" }
+  open-projects:     { type: open, path: 'D:\Projects',                  label: Projects,    icon: "🗂️" }
+
+  # --- programs ----------------------------------------------------------------------------
+  # Roblox Studio lives in a versioned folder that changes with every update, so we search for
+  # the newest RobloxStudioBeta.exe each time the button is pressed.
+  launch-studio:
+    type: launch
+    find: '%LOCALAPPDATA%\Roblox\Versions\*\RobloxStudioBeta.exe'
+    label: Roblox Studio
+    icon: "🧱"
+  # Names on PATH / "App Paths" work as-is; otherwise give the full path.
+  launch-steam:
+    type: launch
+    exe: 'C:\Program Files (x86)\Steam\steam.exe'
+    label: Steam
+    icon: "🎮"
+  launch-discord:
+    type: launch
+    find: '%LOCALAPPDATA%\Discord\app-*\Discord.exe'
+    label: Discord
+    icon: "💬"
+
+  # --- media keys (work no matter which window has focus) ----------------------------------
+  play-pause:  { type: keys, key: media_play_pause, label: "Play / Pause", icon: "⏯️" }
+  next-track:  { type: keys, key: media_next,       label: Next,           icon: "⏭️" }
+  prev-track:  { type: keys, key: media_prev,       label: Previous,       icon: "⏮️" }
+  vol-up:      { type: keys, key: volume_up,        label: "Vol +",        icon: "🔊" }
+  vol-down:    { type: keys, key: volume_down,      label: "Vol −",        icon: "🔉" }
+  vol-mute:    { type: keys, key: volume_mute,      label: Mute,           icon: "🔇" }
+
+  # --- system ------------------------------------------------------------------------------
+  mute-mic:     { type: system, op: mute_mic,     label: "Mic mute",     icon: "🎙️" }
+  monitors-off: { type: system, op: monitors_off, label: "Screens off",  icon: "🖥️" }
+  lock:         { type: system, op: lock,         label: Lock,           icon: "🔒" }
+  sleep:        { type: system, op: sleep,        label: Sleep,          icon: "😴", guard: confirm }
+  restart:      { type: system, op: restart,      label: Restart,        icon: "🔄", guard: confirm+home-only }
+  shutdown:     { type: system, op: shutdown,     label: "Shut down",    icon: "⏻",  guard: confirm+home-only }
+
+  # --- your own scripts ----------------------------------------------------------------------
+  # Relative paths are resolved next to this agent.yaml. The installer copies the examples to
+  # C:\ProgramData\HomePanel\scripts\. They need the AudioDeviceCmdlets module — see the script.
+  audio-speakers:
+    type: script
+    file: 'scripts\audio-speakers.ps1'
+    label: Speakers
+    icon: "🔈"
+  audio-headphones:
+    type: script
+    file: 'scripts\audio-headphones.ps1'
+    label: Headphones
+    icon: "🎧"
+
+  # --- web -----------------------------------------------------------------------------------
+  open-ha:
+    type: url
+    url: http://homeassistant.local:8123
+    label: Home Assistant
+    icon: "🏠"

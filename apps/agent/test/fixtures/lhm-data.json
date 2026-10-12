@@ -1,0 +1,2041 @@
+{
+ "id": 0,
+ "Text": "Sensor",
+ "Min": "Min",
+ "Value": "Value",
+ "Max": "Max",
+ "ImageURL": "",
+ "Children": [
+  {
+   "id": 148,
+   "Text": "KEVIN-GAMING",
+   "Min": "",
+   "Value": "",
+   "Max": "",
+   "ImageURL": "images_icon/computer.png",
+   "Children": [
+    {
+     "id": 30,
+     "Text": "ASUS ROG STRIX B650E-F GAMING WIFI",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/mainboard.png",
+     "HardwareId": "/motherboard",
+     "Children": [
+      {
+       "id": 1,
+       "Text": "Nuvoton NCT6799D",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/chip.png",
+       "HardwareId": "/lpc/nct6799d/0",
+       "Children": [
+        {
+         "id": 2,
+         "Text": "Voltages",
+         "Min": "",
+         "Value": "",
+         "Max": "",
+         "ImageURL": "images_icon/voltage.png",
+         "Children": [
+          {
+           "id": 3,
+           "Text": "Vcore",
+           "Min": "0.883 V",
+           "Value": "1.104 V",
+           "Max": "1.325 V",
+           "SensorId": "/lpc/nct6799d/0/voltage/0",
+           "Type": "Voltage",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 4,
+           "Text": "AVSB",
+           "Min": "2.714 V",
+           "Value": "3.392 V",
+           "Max": "4.070 V",
+           "SensorId": "/lpc/nct6799d/0/voltage/1",
+           "Type": "Voltage",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 5,
+           "Text": "3VCC",
+           "Min": "2.688 V",
+           "Value": "3.360 V",
+           "Max": "4.032 V",
+           "SensorId": "/lpc/nct6799d/0/voltage/2",
+           "Type": "Voltage",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 6,
+           "Text": "+3.3V",
+           "Min": "2.675 V",
+           "Value": "3.344 V",
+           "Max": "4.013 V",
+           "SensorId": "/lpc/nct6799d/0/voltage/3",
+           "Type": "Voltage",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 7,
+           "Text": "VTT",
+           "Min": "0.838 V",
+           "Value": "1.048 V",
+           "Max": "1.258 V",
+           "SensorId": "/lpc/nct6799d/0/voltage/4",
+           "Type": "Voltage",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          }
+         ]
+        },
+        {
+         "id": 8,
+         "Text": "Temperatures",
+         "Min": "",
+         "Value": "",
+         "Max": "",
+         "ImageURL": "images_icon/temperature.png",
+         "Children": [
+          {
+           "id": 9,
+           "Text": "CPU",
+           "Min": "42.0 °C",
+           "Value": "52.5 °C",
+           "Max": "63.0 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/0",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 10,
+           "Text": "System",
+           "Min": "27.2 °C",
+           "Value": "34.0 °C",
+           "Max": "40.8 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/1",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 11,
+           "Text": "VRM MOS",
+           "Min": "33.2 °C",
+           "Value": "41.5 °C",
+           "Max": "49.8 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/2",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 12,
+           "Text": "PCH",
+           "Min": "38.4 °C",
+           "Value": "48.0 °C",
+           "Max": "57.6 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/3",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 13,
+           "Text": "CPU Socket",
+           "Min": "31.2 °C",
+           "Value": "39.0 °C",
+           "Max": "46.8 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/4",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 14,
+           "Text": "Temperature #6",
+           "Min": "24.4 °C",
+           "Value": "30.5 °C",
+           "Max": "36.6 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/5",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 15,
+           "Text": "Temperature #7",
+           "Min": "0.0 °C",
+           "Value": "0.0 °C",
+           "Max": "0.0 °C",
+           "SensorId": "/lpc/nct6799d/0/temperature/6",
+           "Type": "Temperature",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          }
+         ]
+        },
+        {
+         "id": 16,
+         "Text": "Fans",
+         "Min": "",
+         "Value": "",
+         "Max": "",
+         "ImageURL": "images_icon/fan.png",
+         "Children": [
+          {
+           "id": 17,
+           "Text": "Fan #1",
+           "Min": "0 RPM",
+           "Value": "0 RPM",
+           "Max": "0 RPM",
+           "SensorId": "/lpc/nct6799d/0/fan/0",
+           "Type": "Fan",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 18,
+           "Text": "Fan #2",
+           "Min": "994 RPM",
+           "Value": "1,243 RPM",
+           "Max": "1,492 RPM",
+           "SensorId": "/lpc/nct6799d/0/fan/1",
+           "Type": "Fan",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 19,
+           "Text": "Fan #3",
+           "Min": "714 RPM",
+           "Value": "892 RPM",
+           "Max": "1,070 RPM",
+           "SensorId": "/lpc/nct6799d/0/fan/2",
+           "Type": "Fan",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 20,
+           "Text": "Fan #4",
+           "Min": "724 RPM",
+           "Value": "905 RPM",
+           "Max": "1,086 RPM",
+           "SensorId": "/lpc/nct6799d/0/fan/3",
+           "Type": "Fan",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 21,
+           "Text": "Fan #5",
+           "Min": "1,350 RPM",
+           "Value": "1,688 RPM",
+           "Max": "2,026 RPM",
+           "SensorId": "/lpc/nct6799d/0/fan/4",
+           "Type": "Fan",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 22,
+           "Text": "Fan #7",
+           "Min": "0 RPM",
+           "Value": "0 RPM",
+           "Max": "0 RPM",
+           "SensorId": "/lpc/nct6799d/0/fan/5",
+           "Type": "Fan",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          }
+         ]
+        },
+        {
+         "id": 23,
+         "Text": "Controls",
+         "Min": "",
+         "Value": "",
+         "Max": "",
+         "ImageURL": "images_icon/control.png",
+         "Children": [
+          {
+           "id": 24,
+           "Text": "Fan #1",
+           "Min": "0.0 %",
+           "Value": "0.0 %",
+           "Max": "0.0 %",
+           "SensorId": "/lpc/nct6799d/0/control/0",
+           "Type": "Control",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 25,
+           "Text": "Fan #2",
+           "Min": "36.0 %",
+           "Value": "45.0 %",
+           "Max": "54.0 %",
+           "SensorId": "/lpc/nct6799d/0/control/1",
+           "Type": "Control",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 26,
+           "Text": "Fan #3",
+           "Min": "30.4 %",
+           "Value": "38.0 %",
+           "Max": "45.6 %",
+           "SensorId": "/lpc/nct6799d/0/control/2",
+           "Type": "Control",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 27,
+           "Text": "Fan #4",
+           "Min": "30.4 %",
+           "Value": "38.0 %",
+           "Max": "45.6 %",
+           "SensorId": "/lpc/nct6799d/0/control/3",
+           "Type": "Control",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 28,
+           "Text": "Fan #5",
+           "Min": "48.0 %",
+           "Value": "60.0 %",
+           "Max": "72.0 %",
+           "SensorId": "/lpc/nct6799d/0/control/4",
+           "Type": "Control",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          },
+          {
+           "id": 29,
+           "Text": "Fan #7",
+           "Min": "0.0 %",
+           "Value": "0.0 %",
+           "Max": "0.0 %",
+           "SensorId": "/lpc/nct6799d/0/control/5",
+           "Type": "Control",
+           "ImageURL": "images/transparent.png",
+           "Children": []
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 31,
+     "Text": "AMD Ryzen 7 7800X3D",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/cpu.png",
+     "HardwareId": "/amdcpu/0",
+     "Children": [
+      {
+       "id": 32,
+       "Text": "Voltages",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/voltage.png",
+       "Children": [
+        {
+         "id": 33,
+         "Text": "Core (SVI2 TFN)",
+         "Min": "0.880 V",
+         "Value": "1.100 V",
+         "Max": "1.320 V",
+         "SensorId": "/amdcpu/0/voltage/0",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 34,
+         "Text": "Core #1 VID",
+         "Min": "0.840 V",
+         "Value": "1.050 V",
+         "Max": "1.260 V",
+         "SensorId": "/amdcpu/0/voltage/1",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 35,
+         "Text": "Core #2 VID",
+         "Min": "0.848 V",
+         "Value": "1.060 V",
+         "Max": "1.272 V",
+         "SensorId": "/amdcpu/0/voltage/2",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 36,
+         "Text": "Core #3 VID",
+         "Min": "0.856 V",
+         "Value": "1.070 V",
+         "Max": "1.284 V",
+         "SensorId": "/amdcpu/0/voltage/3",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 37,
+         "Text": "Core #4 VID",
+         "Min": "0.864 V",
+         "Value": "1.080 V",
+         "Max": "1.296 V",
+         "SensorId": "/amdcpu/0/voltage/4",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 38,
+         "Text": "Core #5 VID",
+         "Min": "0.872 V",
+         "Value": "1.090 V",
+         "Max": "1.308 V",
+         "SensorId": "/amdcpu/0/voltage/5",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 39,
+         "Text": "Core #6 VID",
+         "Min": "0.880 V",
+         "Value": "1.100 V",
+         "Max": "1.320 V",
+         "SensorId": "/amdcpu/0/voltage/6",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 40,
+         "Text": "Core #7 VID",
+         "Min": "0.888 V",
+         "Value": "1.110 V",
+         "Max": "1.332 V",
+         "SensorId": "/amdcpu/0/voltage/7",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 41,
+         "Text": "Core #8 VID",
+         "Min": "0.896 V",
+         "Value": "1.120 V",
+         "Max": "1.344 V",
+         "SensorId": "/amdcpu/0/voltage/8",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 42,
+       "Text": "Powers",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/power.png",
+       "Children": [
+        {
+         "id": 43,
+         "Text": "Package",
+         "Min": "49.0 W",
+         "Value": "61.3 W",
+         "Max": "73.6 W",
+         "SensorId": "/amdcpu/0/power/0",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 44,
+         "Text": "Core #1 (SMU)",
+         "Min": "2.5 W",
+         "Value": "3.1 W",
+         "Max": "3.7 W",
+         "SensorId": "/amdcpu/0/power/1",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 45,
+         "Text": "Core #2 (SMU)",
+         "Min": "2.8 W",
+         "Value": "3.5 W",
+         "Max": "4.2 W",
+         "SensorId": "/amdcpu/0/power/2",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 46,
+         "Text": "Core #3 (SMU)",
+         "Min": "3.1 W",
+         "Value": "3.9 W",
+         "Max": "4.7 W",
+         "SensorId": "/amdcpu/0/power/3",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 47,
+         "Text": "Core #4 (SMU)",
+         "Min": "3.4 W",
+         "Value": "4.3 W",
+         "Max": "5.2 W",
+         "SensorId": "/amdcpu/0/power/4",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 48,
+         "Text": "Core #5 (SMU)",
+         "Min": "3.8 W",
+         "Value": "4.7 W",
+         "Max": "5.6 W",
+         "SensorId": "/amdcpu/0/power/5",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 49,
+         "Text": "Core #6 (SMU)",
+         "Min": "4.1 W",
+         "Value": "5.1 W",
+         "Max": "6.1 W",
+         "SensorId": "/amdcpu/0/power/6",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 50,
+         "Text": "Core #7 (SMU)",
+         "Min": "4.4 W",
+         "Value": "5.5 W",
+         "Max": "6.6 W",
+         "SensorId": "/amdcpu/0/power/7",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 51,
+         "Text": "Core #8 (SMU)",
+         "Min": "4.7 W",
+         "Value": "5.9 W",
+         "Max": "7.1 W",
+         "SensorId": "/amdcpu/0/power/8",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 52,
+       "Text": "Clocks",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/clock.png",
+       "Children": [
+        {
+         "id": 53,
+         "Text": "Bus Speed",
+         "Min": "80.0 MHz",
+         "Value": "100.0 MHz",
+         "Max": "120.0 MHz",
+         "SensorId": "/amdcpu/0/clock/0",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 54,
+         "Text": "Core #1",
+         "Min": "3,880.0 MHz",
+         "Value": "4,850.0 MHz",
+         "Max": "5,820.0 MHz",
+         "SensorId": "/amdcpu/0/clock/1",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 55,
+         "Text": "Core #2",
+         "Min": "3,890.0 MHz",
+         "Value": "4,862.5 MHz",
+         "Max": "5,835.0 MHz",
+         "SensorId": "/amdcpu/0/clock/2",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 56,
+         "Text": "Core #3",
+         "Min": "3,900.0 MHz",
+         "Value": "4,875.0 MHz",
+         "Max": "5,850.0 MHz",
+         "SensorId": "/amdcpu/0/clock/3",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 57,
+         "Text": "Core #4",
+         "Min": "3,910.0 MHz",
+         "Value": "4,887.5 MHz",
+         "Max": "5,865.0 MHz",
+         "SensorId": "/amdcpu/0/clock/4",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 58,
+         "Text": "Core #5",
+         "Min": "3,920.0 MHz",
+         "Value": "4,900.0 MHz",
+         "Max": "5,880.0 MHz",
+         "SensorId": "/amdcpu/0/clock/5",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 59,
+         "Text": "Core #6",
+         "Min": "3,930.0 MHz",
+         "Value": "4,912.5 MHz",
+         "Max": "5,895.0 MHz",
+         "SensorId": "/amdcpu/0/clock/6",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 60,
+         "Text": "Core #7",
+         "Min": "3,940.0 MHz",
+         "Value": "4,925.0 MHz",
+         "Max": "5,910.0 MHz",
+         "SensorId": "/amdcpu/0/clock/7",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 61,
+         "Text": "Core #8",
+         "Min": "3,950.0 MHz",
+         "Value": "4,937.5 MHz",
+         "Max": "5,925.0 MHz",
+         "SensorId": "/amdcpu/0/clock/8",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 62,
+       "Text": "Temperatures",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/temperature.png",
+       "Children": [
+        {
+         "id": 63,
+         "Text": "Core (Tctl/Tdie)",
+         "Min": "51.0 °C",
+         "Value": "63.8 °C",
+         "Max": "76.6 °C",
+         "SensorId": "/amdcpu/0/temperature/0",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 64,
+         "Text": "CCD1 (Tdie)",
+         "Min": "46.7 °C",
+         "Value": "58.4 °C",
+         "Max": "70.1 °C",
+         "SensorId": "/amdcpu/0/temperature/1",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 65,
+         "Text": "CCDs Max (Tdie)",
+         "Min": "46.7 °C",
+         "Value": "58.4 °C",
+         "Max": "70.1 °C",
+         "SensorId": "/amdcpu/0/temperature/2",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 66,
+         "Text": "CCDs Average (Tdie)",
+         "Min": "46.7 °C",
+         "Value": "58.4 °C",
+         "Max": "70.1 °C",
+         "SensorId": "/amdcpu/0/temperature/3",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 67,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 68,
+         "Text": "CPU Total",
+         "Min": "14.1 %",
+         "Value": "17.6 %",
+         "Max": "21.1 %",
+         "SensorId": "/amdcpu/0/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 69,
+         "Text": "CPU Core Max",
+         "Min": "33.0 %",
+         "Value": "41.2 %",
+         "Max": "49.4 %",
+         "SensorId": "/amdcpu/0/load/1",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 70,
+         "Text": "CPU Core #1 Thread #1",
+         "Min": "12.0 %",
+         "Value": "15.0 %",
+         "Max": "18.0 %",
+         "SensorId": "/amdcpu/0/load/2",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 71,
+         "Text": "CPU Core #1 Thread #2",
+         "Min": "14.4 %",
+         "Value": "18.0 %",
+         "Max": "21.6 %",
+         "SensorId": "/amdcpu/0/load/3",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 72,
+         "Text": "CPU Core #2 Thread #1",
+         "Min": "17.6 %",
+         "Value": "22.0 %",
+         "Max": "26.4 %",
+         "SensorId": "/amdcpu/0/load/4",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 73,
+         "Text": "CPU Core #2 Thread #2",
+         "Min": "4.0 %",
+         "Value": "5.0 %",
+         "Max": "6.0 %",
+         "SensorId": "/amdcpu/0/load/5",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 74,
+         "Text": "CPU Core #3 Thread #1",
+         "Min": "7.2 %",
+         "Value": "9.0 %",
+         "Max": "10.8 %",
+         "SensorId": "/amdcpu/0/load/6",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 75,
+         "Text": "CPU Core #3 Thread #2",
+         "Min": "9.6 %",
+         "Value": "12.0 %",
+         "Max": "14.4 %",
+         "SensorId": "/amdcpu/0/load/7",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 76,
+         "Text": "CPU Core #4 Thread #1",
+         "Min": "12.8 %",
+         "Value": "16.0 %",
+         "Max": "19.2 %",
+         "SensorId": "/amdcpu/0/load/8",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 77,
+         "Text": "CPU Core #4 Thread #2",
+         "Min": "15.2 %",
+         "Value": "19.0 %",
+         "Max": "22.8 %",
+         "SensorId": "/amdcpu/0/load/9",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 78,
+         "Text": "CPU Core #5 Thread #1",
+         "Min": "18.4 %",
+         "Value": "23.0 %",
+         "Max": "27.6 %",
+         "SensorId": "/amdcpu/0/load/10",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 79,
+         "Text": "CPU Core #5 Thread #2",
+         "Min": "4.8 %",
+         "Value": "6.0 %",
+         "Max": "7.2 %",
+         "SensorId": "/amdcpu/0/load/11",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 80,
+         "Text": "CPU Core #6 Thread #1",
+         "Min": "8.0 %",
+         "Value": "10.0 %",
+         "Max": "12.0 %",
+         "SensorId": "/amdcpu/0/load/12",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 81,
+         "Text": "CPU Core #6 Thread #2",
+         "Min": "10.4 %",
+         "Value": "13.0 %",
+         "Max": "15.6 %",
+         "SensorId": "/amdcpu/0/load/13",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 82,
+         "Text": "CPU Core #7 Thread #1",
+         "Min": "13.6 %",
+         "Value": "17.0 %",
+         "Max": "20.4 %",
+         "SensorId": "/amdcpu/0/load/14",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 83,
+         "Text": "CPU Core #7 Thread #2",
+         "Min": "16.0 %",
+         "Value": "20.0 %",
+         "Max": "24.0 %",
+         "SensorId": "/amdcpu/0/load/15",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 84,
+         "Text": "CPU Core #8 Thread #1",
+         "Min": "19.2 %",
+         "Value": "24.0 %",
+         "Max": "28.8 %",
+         "SensorId": "/amdcpu/0/load/16",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 85,
+         "Text": "CPU Core #8 Thread #2",
+         "Min": "5.6 %",
+         "Value": "7.0 %",
+         "Max": "8.4 %",
+         "SensorId": "/amdcpu/0/load/17",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 86,
+     "Text": "AMD Radeon(TM) Graphics",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/ati.png",
+     "HardwareId": "/gpu-amd/0",
+     "Children": [
+      {
+       "id": 87,
+       "Text": "Voltages",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/voltage.png",
+       "Children": [
+        {
+         "id": 88,
+         "Text": "GPU Core",
+         "Min": "0.840 V",
+         "Value": "1.050 V",
+         "Max": "1.260 V",
+         "SensorId": "/gpu-amd/0/voltage/0",
+         "Type": "Voltage",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 89,
+       "Text": "Temperatures",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/temperature.png",
+       "Children": [
+        {
+         "id": 90,
+         "Text": "GPU Core",
+         "Min": "37.6 °C",
+         "Value": "47.0 °C",
+         "Max": "56.4 °C",
+         "SensorId": "/gpu-amd/0/temperature/0",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 91,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 92,
+         "Text": "GPU Core",
+         "Min": "0.0 %",
+         "Value": "0.0 %",
+         "Max": "0.0 %",
+         "SensorId": "/gpu-amd/0/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 93,
+         "Text": "D3D 3D",
+         "Min": "0.0 %",
+         "Value": "0.0 %",
+         "Max": "0.0 %",
+         "SensorId": "/gpu-amd/0/load/1",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 94,
+       "Text": "Data",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 95,
+         "Text": "GPU Memory Used",
+         "Min": "78.8 MB",
+         "Value": "98.5 MB",
+         "Max": "118.2 MB",
+         "SensorId": "/gpu-amd/0/smalldata/0",
+         "Type": "SmallData",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 96,
+     "Text": "NVIDIA GeForce RTX 4080 SUPER",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/nvidia.png",
+     "HardwareId": "/gpu-nvidia/0",
+     "Children": [
+      {
+       "id": 97,
+       "Text": "Powers",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/power.png",
+       "Children": [
+        {
+         "id": 98,
+         "Text": "GPU Package",
+         "Min": "169.4 W",
+         "Value": "211.7 W",
+         "Max": "254.0 W",
+         "SensorId": "/gpu-nvidia/0/power/0",
+         "Type": "Power",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 99,
+       "Text": "Clocks",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/clock.png",
+       "Children": [
+        {
+         "id": 100,
+         "Text": "GPU Core",
+         "Min": "2,196.0 MHz",
+         "Value": "2,745.0 MHz",
+         "Max": "3,294.0 MHz",
+         "SensorId": "/gpu-nvidia/0/clock/0",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 101,
+         "Text": "GPU Memory",
+         "Min": "9,201.6 MHz",
+         "Value": "11,502.0 MHz",
+         "Max": "13,802.4 MHz",
+         "SensorId": "/gpu-nvidia/0/clock/1",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 102,
+         "Text": "GPU Video",
+         "Min": "1,704.0 MHz",
+         "Value": "2,130.0 MHz",
+         "Max": "2,556.0 MHz",
+         "SensorId": "/gpu-nvidia/0/clock/2",
+         "Type": "Clock",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 103,
+       "Text": "Temperatures",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/temperature.png",
+       "Children": [
+        {
+         "id": 104,
+         "Text": "GPU Core",
+         "Min": "48.8 °C",
+         "Value": "61.0 °C",
+         "Max": "73.2 °C",
+         "SensorId": "/gpu-nvidia/0/temperature/0",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 105,
+         "Text": "GPU Hot Spot",
+         "Min": "59.7 °C",
+         "Value": "74.6 °C",
+         "Max": "89.5 °C",
+         "SensorId": "/gpu-nvidia/0/temperature/1",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 106,
+         "Text": "GPU Memory Junction",
+         "Min": "54.4 °C",
+         "Value": "68.0 °C",
+         "Max": "81.6 °C",
+         "SensorId": "/gpu-nvidia/0/temperature/2",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 107,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 108,
+         "Text": "GPU Core",
+         "Min": "73.6 %",
+         "Value": "92.0 %",
+         "Max": "110.4 %",
+         "SensorId": "/gpu-nvidia/0/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 109,
+         "Text": "GPU Memory Controller",
+         "Min": "32.8 %",
+         "Value": "41.0 %",
+         "Max": "49.2 %",
+         "SensorId": "/gpu-nvidia/0/load/1",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 110,
+         "Text": "GPU Video Engine",
+         "Min": "0.0 %",
+         "Value": "0.0 %",
+         "Max": "0.0 %",
+         "SensorId": "/gpu-nvidia/0/load/2",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 111,
+         "Text": "GPU Bus",
+         "Min": "4.8 %",
+         "Value": "6.0 %",
+         "Max": "7.2 %",
+         "SensorId": "/gpu-nvidia/0/load/3",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 112,
+         "Text": "GPU Memory",
+         "Min": "41.8 %",
+         "Value": "52.3 %",
+         "Max": "62.8 %",
+         "SensorId": "/gpu-nvidia/0/load/4",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 113,
+         "Text": "D3D 3D",
+         "Min": "73.1 %",
+         "Value": "91.4 %",
+         "Max": "109.7 %",
+         "SensorId": "/gpu-nvidia/0/load/5",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 114,
+         "Text": "D3D Copy",
+         "Min": "0.3 %",
+         "Value": "0.4 %",
+         "Max": "0.5 %",
+         "SensorId": "/gpu-nvidia/0/load/6",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 115,
+         "Text": "D3D Video Decode",
+         "Min": "0.0 %",
+         "Value": "0.0 %",
+         "Max": "0.0 %",
+         "SensorId": "/gpu-nvidia/0/load/7",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 116,
+       "Text": "Fans",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/fan.png",
+       "Children": [
+        {
+         "id": 117,
+         "Text": "GPU Fan 1",
+         "Min": "1,162 RPM",
+         "Value": "1,452 RPM",
+         "Max": "1,742 RPM",
+         "SensorId": "/gpu-nvidia/0/fan/0",
+         "Type": "Fan",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 118,
+         "Text": "GPU Fan 2",
+         "Min": "1,159 RPM",
+         "Value": "1,449 RPM",
+         "Max": "1,739 RPM",
+         "SensorId": "/gpu-nvidia/0/fan/1",
+         "Type": "Fan",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 119,
+       "Text": "Controls",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/control.png",
+       "Children": [
+        {
+         "id": 120,
+         "Text": "GPU Fan 1",
+         "Min": "38.4 %",
+         "Value": "48.0 %",
+         "Max": "57.6 %",
+         "SensorId": "/gpu-nvidia/0/control/0",
+         "Type": "Control",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 121,
+         "Text": "GPU Fan 2",
+         "Min": "38.4 %",
+         "Value": "48.0 %",
+         "Max": "57.6 %",
+         "SensorId": "/gpu-nvidia/0/control/1",
+         "Type": "Control",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 122,
+       "Text": "Data",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 123,
+         "Text": "GPU Memory Free",
+         "Min": "6,250.0 MB",
+         "Value": "7,812.5 MB",
+         "Max": "9,375.0 MB",
+         "SensorId": "/gpu-nvidia/0/smalldata/0",
+         "Type": "SmallData",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 124,
+         "Text": "GPU Memory Used",
+         "Min": "6,850.8 MB",
+         "Value": "8,563.5 MB",
+         "Max": "10,276.2 MB",
+         "SensorId": "/gpu-nvidia/0/smalldata/1",
+         "Type": "SmallData",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 125,
+         "Text": "GPU Memory Total",
+         "Min": "13,100.8 MB",
+         "Value": "16,376.0 MB",
+         "Max": "19,651.2 MB",
+         "SensorId": "/gpu-nvidia/0/smalldata/2",
+         "Type": "SmallData",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 126,
+         "Text": "D3D Shared Memory Used",
+         "Min": "329.8 MB",
+         "Value": "412.3 MB",
+         "Max": "494.8 MB",
+         "SensorId": "/gpu-nvidia/0/smalldata/3",
+         "Type": "SmallData",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 127,
+       "Text": "Throughput",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/throughput.png",
+       "Children": [
+        {
+         "id": 128,
+         "Text": "GPU PCIe Rx",
+         "Min": "145.6 MB/s",
+         "Value": "182.0 MB/s",
+         "Max": "218.4 MB/s",
+         "SensorId": "/gpu-nvidia/0/throughput/0",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 129,
+         "Text": "GPU PCIe Tx",
+         "Min": "17.0 MB/s",
+         "Value": "21.3 MB/s",
+         "Max": "25.6 MB/s",
+         "SensorId": "/gpu-nvidia/0/throughput/1",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 130,
+     "Text": "Generic Memory",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/ram.png",
+     "HardwareId": "/ram",
+     "Children": [
+      {
+       "id": 131,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 132,
+         "Text": "Memory",
+         "Min": "37.4 %",
+         "Value": "46.8 %",
+         "Max": "56.2 %",
+         "SensorId": "/ram/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 133,
+         "Text": "Virtual Memory",
+         "Min": "31.4 %",
+         "Value": "39.2 %",
+         "Max": "47.0 %",
+         "SensorId": "/ram/load/1",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 134,
+       "Text": "Data",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 135,
+         "Text": "Memory Used",
+         "Min": "11.9 GB",
+         "Value": "14.9 GB",
+         "Max": "17.9 GB",
+         "SensorId": "/ram/data/0",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 136,
+         "Text": "Memory Available",
+         "Min": "13.5 GB",
+         "Value": "16.9 GB",
+         "Max": "20.3 GB",
+         "SensorId": "/ram/data/1",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 137,
+         "Text": "Virtual Memory Used",
+         "Min": "15.0 GB",
+         "Value": "18.8 GB",
+         "Max": "22.6 GB",
+         "SensorId": "/ram/data/2",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 138,
+         "Text": "Virtual Memory Available",
+         "Min": "23.3 GB",
+         "Value": "29.1 GB",
+         "Max": "34.9 GB",
+         "SensorId": "/ram/data/3",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 149,
+     "Text": "Samsung SSD 990 PRO 2TB",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/hdd.png",
+     "HardwareId": "/nvme/0",
+     "Children": [
+      {
+       "id": 150,
+       "Text": "Temperatures",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/temperature.png",
+       "Children": [
+        {
+         "id": 151,
+         "Text": "Composite Temperature",
+         "Min": "33.5 °C",
+         "Value": "41.9 °C",
+         "Max": "50.3 °C",
+         "SensorId": "/nvme/0/temperature/0",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 152,
+         "Text": "Temperature #1",
+         "Min": "31.9 °C",
+         "Value": "39.9 °C",
+         "Max": "47.9 °C",
+         "SensorId": "/nvme/0/temperature/1",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 153,
+         "Text": "Temperature #2",
+         "Min": "39.0 °C",
+         "Value": "48.7 °C",
+         "Max": "58.4 °C",
+         "SensorId": "/nvme/0/temperature/2",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 154,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 155,
+         "Text": "Used Space",
+         "Min": "50.6 %",
+         "Value": "63.2 %",
+         "Max": "75.8 %",
+         "SensorId": "/nvme/0/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 156,
+         "Text": "Read Activity",
+         "Min": "0.2 %",
+         "Value": "0.2 %",
+         "Max": "0.2 %",
+         "SensorId": "/nvme/0/load/1",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 157,
+         "Text": "Write Activity",
+         "Min": "1.0 %",
+         "Value": "1.3 %",
+         "Max": "1.6 %",
+         "SensorId": "/nvme/0/load/2",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 158,
+         "Text": "Total Activity",
+         "Min": "1.2 %",
+         "Value": "1.5 %",
+         "Max": "1.8 %",
+         "SensorId": "/nvme/0/load/3",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 159,
+       "Text": "Levels",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/level.png",
+       "Children": [
+        {
+         "id": 160,
+         "Text": "Available Spare",
+         "Min": "80.0 %",
+         "Value": "100.0 %",
+         "Max": "120.0 %",
+         "SensorId": "/nvme/0/level/0",
+         "Type": "Level",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 161,
+         "Text": "Available Spare Threshold",
+         "Min": "8.0 %",
+         "Value": "10.0 %",
+         "Max": "12.0 %",
+         "SensorId": "/nvme/0/level/1",
+         "Type": "Level",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 162,
+         "Text": "Percentage Used",
+         "Min": "1.6 %",
+         "Value": "2.0 %",
+         "Max": "2.4 %",
+         "SensorId": "/nvme/0/level/2",
+         "Type": "Level",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 163,
+       "Text": "Data",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 164,
+         "Text": "Data Read",
+         "Min": "17076.5 GB",
+         "Value": "21345.6 GB",
+         "Max": "25614.7 GB",
+         "SensorId": "/nvme/0/data/0",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 165,
+         "Text": "Data Written",
+         "Min": "14587.4 GB",
+         "Value": "18234.2 GB",
+         "Max": "21881.0 GB",
+         "SensorId": "/nvme/0/data/1",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 166,
+       "Text": "Throughput",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/throughput.png",
+       "Children": [
+        {
+         "id": 167,
+         "Text": "Read Rate",
+         "Min": "41.8 KB/s",
+         "Value": "52.3 KB/s",
+         "Max": "62.8 KB/s",
+         "SensorId": "/nvme/0/throughput/0",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 168,
+         "Text": "Write Rate",
+         "Min": "1.5 MB/s",
+         "Value": "1.8 MB/s",
+         "Max": "2.2 MB/s",
+         "SensorId": "/nvme/0/throughput/1",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 169,
+     "Text": "WD_BLACK SN850X 4000GB",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/hdd.png",
+     "HardwareId": "/nvme/1",
+     "Children": [
+      {
+       "id": 170,
+       "Text": "Temperatures",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/temperature.png",
+       "Children": [
+        {
+         "id": 171,
+         "Text": "Composite Temperature",
+         "Min": "31.1 °C",
+         "Value": "38.9 °C",
+         "Max": "46.7 °C",
+         "SensorId": "/nvme/1/temperature/0",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 172,
+         "Text": "Temperature #1",
+         "Min": "29.5 °C",
+         "Value": "36.9 °C",
+         "Max": "44.3 °C",
+         "SensorId": "/nvme/1/temperature/1",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 173,
+         "Text": "Temperature #2",
+         "Min": "36.6 °C",
+         "Value": "45.7 °C",
+         "Max": "54.8 °C",
+         "SensorId": "/nvme/1/temperature/2",
+         "Type": "Temperature",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 174,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 175,
+         "Text": "Used Space",
+         "Min": "57.2 %",
+         "Value": "71.5 %",
+         "Max": "85.8 %",
+         "SensorId": "/nvme/1/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 176,
+         "Text": "Read Activity",
+         "Min": "0.2 %",
+         "Value": "0.2 %",
+         "Max": "0.2 %",
+         "SensorId": "/nvme/1/load/1",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 177,
+         "Text": "Write Activity",
+         "Min": "1.0 %",
+         "Value": "1.3 %",
+         "Max": "1.6 %",
+         "SensorId": "/nvme/1/load/2",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 178,
+         "Text": "Total Activity",
+         "Min": "1.2 %",
+         "Value": "1.5 %",
+         "Max": "1.8 %",
+         "SensorId": "/nvme/1/load/3",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 179,
+       "Text": "Levels",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/level.png",
+       "Children": [
+        {
+         "id": 180,
+         "Text": "Available Spare",
+         "Min": "80.0 %",
+         "Value": "100.0 %",
+         "Max": "120.0 %",
+         "SensorId": "/nvme/1/level/0",
+         "Type": "Level",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 181,
+         "Text": "Available Spare Threshold",
+         "Min": "8.0 %",
+         "Value": "10.0 %",
+         "Max": "12.0 %",
+         "SensorId": "/nvme/1/level/1",
+         "Type": "Level",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 182,
+         "Text": "Percentage Used",
+         "Min": "1.6 %",
+         "Value": "2.0 %",
+         "Max": "2.4 %",
+         "SensorId": "/nvme/1/level/2",
+         "Type": "Level",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 183,
+       "Text": "Data",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 184,
+         "Text": "Data Read",
+         "Min": "17076.5 GB",
+         "Value": "21345.6 GB",
+         "Max": "25614.7 GB",
+         "SensorId": "/nvme/1/data/0",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 185,
+         "Text": "Data Written",
+         "Min": "14587.4 GB",
+         "Value": "18234.2 GB",
+         "Max": "21881.0 GB",
+         "SensorId": "/nvme/1/data/1",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 186,
+       "Text": "Throughput",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/throughput.png",
+       "Children": [
+        {
+         "id": 187,
+         "Text": "Read Rate",
+         "Min": "41.8 KB/s",
+         "Value": "52.3 KB/s",
+         "Max": "62.8 KB/s",
+         "SensorId": "/nvme/1/throughput/0",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 188,
+         "Text": "Write Rate",
+         "Min": "1.5 MB/s",
+         "Value": "1.8 MB/s",
+         "Max": "2.2 MB/s",
+         "SensorId": "/nvme/1/throughput/1",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "id": 139,
+     "Text": "Ethernet",
+     "Min": "",
+     "Value": "",
+     "Max": "",
+     "ImageURL": "images_icon/nic.png",
+     "HardwareId": "/nic/%7B4E3A9F5C-1B2D-4C8E-9F0A-7D6E5C4B3A21%7D",
+     "Children": [
+      {
+       "id": 140,
+       "Text": "Load",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 141,
+         "Text": "Network Utilization",
+         "Min": "0.3 %",
+         "Value": "0.4 %",
+         "Max": "0.5 %",
+         "SensorId": "/nic/%7B4E3A9F5C-1B2D-4C8E-9F0A-7D6E5C4B3A21%7D/load/0",
+         "Type": "Load",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 142,
+       "Text": "Data",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/load.png",
+       "Children": [
+        {
+         "id": 143,
+         "Text": "Data Uploaded",
+         "Min": "2.7 GB",
+         "Value": "3.4 GB",
+         "Max": "4.1 GB",
+         "SensorId": "/nic/%7B4E3A9F5C-1B2D-4C8E-9F0A-7D6E5C4B3A21%7D/data/0",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 144,
+         "Text": "Data Downloaded",
+         "Min": "41.7 GB",
+         "Value": "52.1 GB",
+         "Max": "62.5 GB",
+         "SensorId": "/nic/%7B4E3A9F5C-1B2D-4C8E-9F0A-7D6E5C4B3A21%7D/data/1",
+         "Type": "Data",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      },
+      {
+       "id": 145,
+       "Text": "Throughput",
+       "Min": "",
+       "Value": "",
+       "Max": "",
+       "ImageURL": "images_icon/throughput.png",
+       "Children": [
+        {
+         "id": 146,
+         "Text": "Upload Speed",
+         "Min": "9.9 KB/s",
+         "Value": "12.4 KB/s",
+         "Max": "14.9 KB/s",
+         "SensorId": "/nic/%7B4E3A9F5C-1B2D-4C8E-9F0A-7D6E5C4B3A21%7D/throughput/0",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        },
+        {
+         "id": 147,
+         "Text": "Download Speed",
+         "Min": "676.0 KB/s",
+         "Value": "845.0 KB/s",
+         "Max": "1.0 MB/s",
+         "SensorId": "/nic/%7B4E3A9F5C-1B2D-4C8E-9F0A-7D6E5C4B3A21%7D/throughput/1",
+         "Type": "Throughput",
+         "ImageURL": "images/transparent.png",
+         "Children": []
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" fill="#11141c"/>
+  <circle cx="100" cy="100" r="30" fill="none" stroke="#50c8ff" stroke-width="4">
+    <animate attributeName="r" values="20;80;20" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="1;0;1" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="100" cy="100" r="16" fill="#ff7850">
+    <animate attributeName="r" values="14;20;14" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  <text x="100" y="185" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" fill="#eee">HomePanel</text>
+</svg>

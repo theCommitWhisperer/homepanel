@@ -1,0 +1,35 @@
+# HomePanel server configuration (DATA_DIR/config.yaml)
+# Edit here or in /admin → Settings. Changes made in /admin are validated before saving.
+
+# Doorbells: when `ring` fires, every screen (or those in on_ring.show_on) shows the camera full screen.
+# `ring` is a binary_sensor (rings when it turns "on") or an event.* entity (rings on every new event).
+doorbells: {}
+#  front:
+#    provider: reolink
+#    name: Front door
+#    ring: binary_sensor.front_door_visitor     # Reolink "Visitor" sensor
+#    camera: camera.front_door_fluent           # "fluent" = low-res stream, kinder to tablets
+#  side:
+#    provider: eufy
+#    name: Side door
+#    ring: event.side_door_ring                 # or binary_sensor.side_door_ringing, depending on the integration
+#    camera: camera.side_door
+#    snapshot: image.side_door_event_image      # optional: Eufy's last-event image
+
+on_ring:
+  show_on: []          # profile ids; empty = all screens
+  wake_screens: true   # also turn on Fully Kiosk screens listed below
+  close_after: 60s
+
+# Fully Kiosk Browser (Android / Fire tablets) remote admin, used to wake screens on a ring.
+# Key = device id from /admin → Screens.
+fully_kiosk: {}
+#  abc123:
+#    url: http://192.168.1.50:2323
+#    password: your-fully-remote-admin-password
+
+# AI setup assistant (optional). Env AI_PROVIDER / AI_API_KEY / AI_MODEL / AI_BASE_URL override these.
+assistant: {}
+#  provider: gemini      # gemini | groq | openrouter | ollama | lmstudio | custom
+#  apiKey: ...
+#  model: ...
