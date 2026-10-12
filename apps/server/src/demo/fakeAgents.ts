@@ -6,30 +6,30 @@ import {
   type AgentCommand,
   type AgentSensor,
 } from "@homepanel/protocol";
-import type { AgentManager, AgentTransport } from "../agents.js";
+import type { AgentManager, AgentTransport } from "../mqtt/agents.js";
 
-export const DEMO_AGENT_KEYS = { "gaming-pc": "demo-gaming-pc-key", "mini-pc": "demo-mini-pc-key" } as const;
+export const DEMO_AGENT_KEYS = { "gaming-pc": "demo-gaming-pc-key" } as const;
 
 const GAMING_ACTIONS: AgentActionInfo[] = [
-  { id: "open-drive-c", label: "Open C:", type: "open", icon: "💽" },
-  { id: "open-drive-d", label: "Open D:", type: "open", icon: "💾" },
-  { id: "open-projects", label: "Projects", type: "open", icon: "📁" },
+  { id: "open-drive-c", label: "C: drive", type: "open", icon: "drive" },
+  { id: "open-drive-d", label: "D: drive", type: "open", icon: "drive" },
+  { id: "open-downloads", label: "Downloads", type: "open", icon: "folder" },
+  { id: "open-projects", label: "Projects", type: "open", icon: "folder" },
   { id: "launch-studio", label: "Roblox Studio", type: "launch", icon: "🎮" },
-  { id: "play-pause", label: "Play / Pause", type: "keys", icon: "⏯️" },
-  { id: "next-track", label: "Next", type: "keys", icon: "⏭️" },
+  { id: "launch-steam", label: "Steam", type: "launch", icon: "steam" },
+  { id: "launch-discord", label: "Discord", type: "launch", icon: "💬" },
+  { id: "media-playpause", label: "Play / Pause", type: "keys", icon: "⏯️" },
+  { id: "media-next", label: "Next track", type: "keys", icon: "⏭️" },
   { id: "vol-up", label: "Vol +", type: "keys", icon: "🔊" },
   { id: "vol-down", label: "Vol −", type: "keys", icon: "🔉" },
   { id: "mute-mic", label: "Mute mic", type: "keys", icon: "🎙️" },
-  { id: "monitors-off", label: "Monitors off", type: "system", icon: "🖥️" },
-  { id: "lock", label: "Lock", type: "system", icon: "🔒" },
-  { id: "sleep", label: "Sleep", type: "system", icon: "😴", guard: "confirm" },
-  { id: "restart", label: "Restart", type: "system", icon: "🔄", guard: "confirm+home-only" },
-  { id: "shutdown", label: "Shut down", type: "system", icon: "⏻", guard: "confirm+home-only" },
-];
-
-const MINI_ACTIONS: AgentActionInfo[] = [
-  { id: "open-media", label: "Open media", type: "open", icon: "📂" },
-  { id: "restart", label: "Restart", type: "system", icon: "🔄", guard: "confirm+home-only" },
+  { id: "audio-speakers", label: "Speakers", type: "script", icon: "🔈" },
+  { id: "audio-headphones", label: "Headphones", type: "script", icon: "🎧" },
+  { id: "monitors-off", label: "Screens off", type: "system", icon: "monitor" },
+  { id: "lock", label: "Lock", type: "system", icon: "lock" },
+  { id: "sleep", label: "Sleep", type: "system", icon: "moon", guard: "confirm" },
+  { id: "restart", label: "Restart", type: "system", icon: "restart", guard: "confirm+home-only" },
+  { id: "shutdown", label: "Shut down", type: "system", icon: "power", guard: "confirm+home-only" },
 ];
 
 /** A value that wanders smoothly between bounds. */
@@ -62,86 +62,56 @@ interface FakePc {
 }
 
 function gamingPc(): FakePc {
-  const load = new Wiggle(5, 85, 6, 20);
-  const gpuLoad = new Wiggle(2, 95, 8, 15);
-  const nv0 = new Wiggle(38, 52, 0.6, 42);
-  const nv1 = new Wiggle(33, 46, 0.5, 37);
-  const mb = new Wiggle(32, 40, 0.3, 35);
+  const load = new Wiggle(4, 85, 6, 18);
+  const gpuLoad = new Wiggle(1, 97, 8, 12);
+  const nv0 = new Wiggle(38, 54, 0.6, 43);
+  const nv1 = new Wiggle(33, 47, 0.5, 37);
   const cpuName = "AMD Ryzen 7 7800X3D";
   const gpuName = "NVIDIA GeForce RTX 4070 Ti SUPER";
+  // thermal mass: temperatures chase a load-dependent target instead of jumping
+  let pkg = 50;
+  let gpu = 42;
+  const chase = (cur: number, target: number, k: number) => cur + (target - cur) * k + (Math.random() - 0.5) * 0.6;
+  const fan = (base: number, per: number, x: number) => Math.round(base + x * per + (Math.random() - 0.5) * 30);
   return {
     pc: "gaming-pc",
-    hostname: "KEVIN-PC",
+    hostname: "GAMING-PC",
     drives: [
-      { letter: "C:", label: "Windows", totalGB: 931.5, freeGB: 412.3 },
-      { letter: "D:", label: "Games", totalGB: 1863, freeGB: 538.9 },
-      { letter: "E:", label: "Projects", totalGB: 476.9, freeGB: 301.2 },
+      { letter: "C:", label: "Windows", totalGB: 931.5, freeGB: 402.7 },
+      { letter: "D:", label: "Games", totalGB: 1863, freeGB: 512.4 },
+      { letter: "E:", label: "Storage", totalGB: 3726, freeGB: 2210.9 },
     ],
     actions: GAMING_ACTIONS,
     sensors: () => {
       const l = load.next();
       const g = gpuLoad.next();
-      const pkg = 45 + (l / 100) * 30 + (Math.random() - 0.5) * 1.5; // ~45-75 °C
-      const gpu = 38 + (g / 100) * 34 + (Math.random() - 0.5);
-      const cores: AgentSensor[] = Array.from({ length: 8 }, (_, i) => ({
-        id: `cpu_core${i + 1}`,
-        name: `CPU Core #${i + 1}`,
-        kind: "temperature",
-        value: r1(pkg - 4 + Math.random() * 6),
-        unit: "°C",
-        hardware: cpuName,
-      }));
+      pkg = chase(pkg, 44 + l * 0.36, 0.35); // ~44-75 °C
+      gpu = chase(gpu, 36 + g * 0.36, 0.3); // ~36-71 °C
       return [
         { id: "cpu_package", name: "CPU Package", kind: "temperature", value: r1(pkg), unit: "°C", hardware: cpuName },
-        ...cores,
+        { id: "cpu_core_max", name: "CPU Hottest Core", kind: "temperature", value: r1(pkg + 3 + Math.random() * 4), unit: "°C", hardware: cpuName },
         { id: "gpu_core", name: "GPU Core", kind: "temperature", value: r1(gpu), unit: "°C", hardware: gpuName },
-        { id: "gpu_hotspot", name: "GPU Hotspot", kind: "temperature", value: r1(gpu + 9 + Math.random() * 3), unit: "°C", hardware: gpuName },
-        { id: "nvme0_temp", name: "NVMe0 (Samsung 990 Pro)", kind: "temperature", value: r1(nv0.next()), unit: "°C", hardware: "Samsung SSD 990 PRO 1TB" },
-        { id: "nvme1_temp", name: "NVMe1 (WD SN850X)", kind: "temperature", value: r1(nv1.next()), unit: "°C", hardware: "WD_BLACK SN850X 2TB" },
-        { id: "motherboard", name: "Motherboard", kind: "temperature", value: r1(mb.next()), unit: "°C", hardware: "MSI MAG B650 TOMAHAWK" },
-        { id: "cpu_load", name: "CPU Load", kind: "load", value: r1(l), unit: "%", hardware: cpuName },
-        { id: "gpu_load", name: "GPU Load", kind: "load", value: r1(g), unit: "%", hardware: gpuName },
-        { id: "ram_load", name: "Memory Used", kind: "load", value: r1(38 + l * 0.2), unit: "%" },
-        { id: "cpu_fan", name: "CPU Fan", kind: "fan", value: Math.round(700 + l * 9 + Math.random() * 30), unit: "RPM" },
-        { id: "gpu_fan", name: "GPU Fan", kind: "fan", value: g < 25 ? 0 : Math.round(900 + g * 12 + Math.random() * 40), unit: "RPM", hardware: gpuName },
-        { id: "case_fan1", name: "Case Fan 1", kind: "fan", value: Math.round(800 + l * 4 + Math.random() * 20), unit: "RPM" },
-        { id: "cpu_power", name: "CPU Package Power", kind: "power", value: r1(28 + l * 0.9), unit: "W", hardware: cpuName },
-        { id: "gpu_power", name: "GPU Power", kind: "power", value: r1(18 + g * 2.6), unit: "W", hardware: gpuName },
-      ];
-    },
-  };
-}
-
-function miniPc(): FakePc {
-  const load = new Wiggle(3, 45, 4, 12);
-  const nv = new Wiggle(36, 48, 0.5, 40);
-  const cpuName = "Intel N100";
-  return {
-    pc: "mini-pc",
-    hostname: "T8-PLUS",
-    drives: [{ letter: "/", label: "root", totalGB: 476.9, freeGB: 388.4 }],
-    actions: MINI_ACTIONS,
-    sensors: () => {
-      const l = load.next();
-      const pkg = 40 + l * 0.45 + (Math.random() - 0.5);
-      return [
-        { id: "cpu_package", name: "CPU Package", kind: "temperature", value: r1(pkg), unit: "°C", hardware: cpuName },
-        { id: "nvme0_temp", name: "NVMe0", kind: "temperature", value: r1(nv.next()), unit: "°C" },
-        { id: "cpu_load", name: "CPU Load", kind: "load", value: r1(l), unit: "%", hardware: cpuName },
-        { id: "ram_load", name: "Memory Used", kind: "load", value: r1(52 + l * 0.1), unit: "%" },
-        { id: "cpu_power", name: "CPU Package Power", kind: "power", value: r1(3 + l * 0.12), unit: "W", hardware: cpuName },
+        { id: "gpu_hotspot", name: "GPU Hotspot", kind: "temperature", value: r1(gpu + 10 + Math.random() * 3), unit: "°C", hardware: gpuName },
+        { id: "gpu_memory_junction", name: "GPU VRAM", kind: "temperature", value: r1(gpu + 6 + Math.random() * 2), unit: "°C", hardware: gpuName },
+        { id: "nvme0_temp", name: "NVMe0 (990 Pro)", kind: "temperature", value: r1(nv0.next()), unit: "°C", hardware: "Samsung SSD 990 PRO 1TB" },
+        { id: "nvme1_temp", name: "NVMe1 (SN850X)", kind: "temperature", value: r1(nv1.next()), unit: "°C", hardware: "WD_BLACK SN850X 2TB" },
+        { id: "cpu_load_total", name: "CPU Load", kind: "load", value: r1(l), unit: "%", hardware: cpuName },
+        { id: "gpu_load_core", name: "GPU Load", kind: "load", value: r1(g), unit: "%", hardware: gpuName },
+        { id: "cpu_fan", name: "CPU Fan", kind: "fan", value: fan(650, 9, l), unit: "RPM" },
+        { id: "gpu_fan", name: "GPU Fan", kind: "fan", value: g < 25 ? 0 : fan(900, 12, g), unit: "RPM", hardware: gpuName },
+        { id: "case_fan", name: "Case Fan", kind: "fan", value: fan(750, 4, Math.max(l, g)), unit: "RPM" },
       ];
     },
   };
 }
 
 /**
- * In-process stand-in for MQTT + two PC agents. It feeds payloads to the AgentManager
+ * In-process stand-in for MQTT + the demo PC agent. It feeds payloads to the AgentManager
  * exactly as MQTT would, and answers signed commands after 300 ms (verifying the HMAC).
  */
 export class DemoAgentTransport implements AgentTransport {
   readonly status = "demo" as const;
-  private pcs: FakePc[] = [gamingPc(), miniPc()];
+  private pcs: FakePc[] = [gamingPc()];
   private timers: NodeJS.Timeout[] = [];
 
   constructor(private manager: AgentManager, private intervalMs = 2000) {}

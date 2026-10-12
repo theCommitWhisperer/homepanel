@@ -17,17 +17,20 @@ ports:
 ports_description:
   8080/tcp: HomePanel (screens + /admin)
 webui: http://[HOST]:[PORT:8080]/admin
+# homeassistant_api: the Supervisor injects SUPERVISOR_TOKEN; run.sh sets HA_URL=http://supervisor/core and
+# HA_TOKEN=$SUPERVISOR_TOKEN (WebSocket: ws://supervisor/core/websocket). No long-lived token needed.
 homeassistant_api: true
 hassio_api: true
+# mqtt:need — install the Mosquitto broker app first; the Supervisor then hands us its credentials.
 services:
-  - mqtt:want
+  - mqtt:need
 map:
   - share:rw   # /share/homepanel/media can be used for gifs/images
 options:
   admin_password: ""
   log_level: info
 schema:
-  admin_password: password
+  admin_password: password?
   ai_provider: list(gemini|groq|openrouter|ollama|lmstudio|custom)?
   ai_model: str?
   ai_base_url: url?

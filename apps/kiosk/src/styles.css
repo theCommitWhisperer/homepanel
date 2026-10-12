@@ -1,51 +1,54 @@
-/* HomePanel — "wall thermostat" palette.
-   One accent (pilot-light teal) for anything you can press; warm glow only for lights that are on;
-   amber / coral only for warnings. Big thin rounded numerals carry the personality. */
+/* HomePanel — "instrument panel".
+   Near-black glass, hairline bezels, one confident accent (signal lime) for live data and anything you
+   can press; warm glow only for lights that are on; amber / red only for warnings. Numerals are the
+   hero: tabular, light-but-not-hairline so they read from across the room. */
 :root,
 :root[data-theme="dark"] {
-  --bg: #161c22;
-  --panel: #1f272f;
-  --panel-2: #28323c;
-  --line: #313d48;
-  --ink: #e9eef2;
-  --ink-2: #a5b1bc;
-  --ink-3: #6f7d8a;
-  --accent: #5cc8be;
-  --accent-ink: #082624;
-  --accent-soft: rgba(92, 200, 190, 0.14);
-  --glow: #ffc978;
-  --glow-soft: rgba(255, 201, 120, 0.18);
-  --ok: #6fd39a;
-  --warn: #f1b44c;
-  --crit: #ff6d5e;
-  --scrim: rgba(8, 12, 16, 0.72);
+  --bg: #08090b;
+  --panel: #111417;
+  --panel-2: #1a1e23;
+  --line: #22272d;
+  --ink: #eef1f3;
+  --ink-2: #9ba5ae;
+  --ink-3: #5f6973;
+  --accent: #c2f24a;
+  --accent-ink: #11180a;
+  --accent-soft: rgba(194, 242, 74, 0.12);
+  --glow: #ffc46b;
+  --glow-soft: rgba(255, 196, 107, 0.16);
+  --ok: #c2f24a;
+  --warn: #ffb020;
+  --crit: #ff5348;
+  --scrim: rgba(4, 5, 6, 0.78);
+  --bezel: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   color-scheme: dark;
 }
 :root[data-theme="light"] {
-  --bg: #e7ebee;
-  --panel: #f7f9fa;
-  --panel-2: #eaeef1;
-  --line: #d3dade;
-  --ink: #18212a;
-  --ink-2: #4c5a66;
-  --ink-3: #7d8a95;
-  --accent: #127f77;
+  --bg: #e9ecee;
+  --panel: #fbfcfc;
+  --panel-2: #eef1f3;
+  --line: #d6dbdf;
+  --ink: #12171c;
+  --ink-2: #4a5560;
+  --ink-3: #7c8791;
+  --accent: #4f7d00;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(18, 127, 119, 0.12);
-  --glow: #e39a1b;
-  --glow-soft: rgba(227, 154, 27, 0.16);
-  --ok: #1f9a57;
-  --warn: #c07a00;
-  --crit: #d23a2b;
-  --scrim: rgba(30, 38, 46, 0.55);
+  --accent-soft: rgba(79, 125, 0, 0.1);
+  --glow: #d98b00;
+  --glow-soft: rgba(217, 139, 0, 0.14);
+  --ok: #3f7a00;
+  --warn: #b86e00;
+  --crit: #cf2e24;
+  --scrim: rgba(20, 26, 32, 0.55);
+  --bezel: none;
   color-scheme: light;
 }
 
 :root {
-  --font: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font: system-ui, -apple-system, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
-  --r-tile: 22px;
-  --r-inner: 14px;
+  --r-tile: 16px;
+  --r-inner: 11px;
   --r-chip: 999px;
   --gap: 12px;
   --tap: 48px;
@@ -93,6 +96,8 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
   min-width: 0;
   min-height: 0;
   background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--bezel);
   border-radius: var(--r-tile);
   overflow: hidden;
   display: flex;
@@ -102,10 +107,12 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 .tile-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; padding: 16px 18px; position: relative; }
 .tile.bleed .tile-body { padding: 0; }
 .tile-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink-2);
-  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -113,9 +120,9 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 }
 .tile.bleed .tile-title {
   position: absolute; top: 12px; left: 14px; z-index: 2; margin: 0;
-  background: var(--scrim); color: #fff; padding: 4px 10px; border-radius: var(--r-chip); font-size: 14px;
+  background: var(--scrim); color: #fff; padding: 5px 11px; border-radius: var(--r-chip); font-size: 12px;
 }
-.tile.fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; border-radius: 0; z-index: 40; }
+.tile.fullscreen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; border-radius: 0; border: 0; z-index: 40; }
 
 .placeholder {
   flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; gap: 6px;
@@ -129,7 +136,7 @@ button { cursor: pointer; -webkit-user-select: none; user-select: none; touch-ac
 
 /* ---------------- shared bits ---------------- */
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); flex: none; }
-.dot.on { background: var(--ok); }
+.dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 .dot.warn { background: var(--warn); }
 .spinner {
   width: 22px; height: 22px; border-radius: 50%;
@@ -198,7 +205,7 @@ html.lite .spinner { border-right-color: currentColor; opacity: 0.6; }
 .brand { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 650; color: var(--ink-2); }
 .brand svg { color: var(--accent); }
 .pair-code {
-  font-size: 22vmin; font-weight: 250; letter-spacing: 0.06em; line-height: 1; color: var(--ink);
+  font-size: 22vmin; font-weight: 300; letter-spacing: 0.06em; line-height: 1; color: var(--ink);
   display: flex; gap: 0.18em; margin: 8px 0;
 }
 .pair-code .gap { width: 0.25em; }
@@ -207,3 +214,16 @@ html.lite .spinner { border-right-color: currentColor; opacity: 0.6; }
 .pair-bar { width: min(420px, 70vw); height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
 .pair-bar > div { height: 100%; background: var(--accent); transition: width 1s linear; }
 .pair-error { color: var(--warn); font-size: 16px; }
+
+.pair-url {
+  display: block; margin-top: 10px; font-family: var(--mono); font-size: 22px; color: var(--accent);
+  -webkit-user-select: text; user-select: text; word-break: break-all;
+}
+
+/* ---------------- narrow portrait (phones): stack tiles in reading order ---------------- */
+@media (max-width: 599px) and (orientation: portrait) {
+  .kiosk { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .grid { display: flex; flex-direction: column; height: auto; min-height: 100%; }
+  .grid > .tile { flex: none; height: calc(clamp(2, var(--rows, 2), 4) * 84px); }
+}
+.kiosk { touch-action: manipulation; }

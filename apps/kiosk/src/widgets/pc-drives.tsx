@@ -5,21 +5,23 @@ import { useRunAction, useSize } from "../components";
 import { fitGrid } from "../lib/store";
 import { Icon } from "../icons";
 
-const schema = z.object({ pc: z.string(), openActions: z.record(z.string()).optional() });
+/** openActions optionally maps a drive letter to an action id; otherwise `open-drive-<letter>` is used when the PC offers it. */
+export const schema = z.object({ pc: z.string(), openActions: z.record(z.string()).optional() });
 
 function fmt(gb: number) {
   return gb >= 1000 ? (gb / 1000).toFixed(gb >= 10000 ? 0 : 1) + " TB" : Math.round(gb) + " GB";
 }
 
 /** Match a drive to an action: config.openActions["C:"] or ["C"] or an advertised action "open-c". */
-function actionFor(d: AgentDrive, cfg: z.infer<typeof schema>, adv?: AgentActionsPayload): string | undefined {
+export function actionFor(d: AgentDrive, cfg: z.infer<typeof schema>, adv?: AgentActionsPayload): string | undefined {
   const map = cfg.openActions ?? {};
   const bare = d.letter.replace(/[:\\/]+$/, "");
   const explicit = map[d.letter] ?? map[bare] ?? map[bare.toLowerCase()] ?? map[bare.toUpperCase()];
   if (explicit) return explicit;
   if (cfg.openActions) return undefined;
   const slug = bare.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const guess = adv?.actions.find((a) => a.type === "open" && (a.id === "open-" + slug || a.id === "open_" + slug || a.id === "drive-" + slug));
+  const ids = ["open-drive-" + slug, "open-" + slug, "open_" + slug, "drive-" + slug];
+  const guess = adv?.actions.find((a) => ids.indexOf(a.id) >= 0);
   return guess?.id;
 }
 

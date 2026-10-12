@@ -23,7 +23,7 @@ export function applyTheme(theme: Profile["theme"] | undefined, lite: boolean) {
   root.setAttribute("data-theme", t);
   root.classList.toggle("lite", lite);
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content", t === "light" ? "#e7ebee" : "#161c22");
+  if (meta) meta.setAttribute("content", t === "light" ? "#e9ecee" : "#08090b");
 }
 
 function useWakeLock(active: boolean) {
@@ -50,6 +50,20 @@ function useWakeLock(active: boolean) {
       try { void lock?.release(); } catch { /* ignore */ }
     };
   }, [active]);
+}
+
+/** iOS ignores user-scalable=no; block pinch + double-tap zoom on the kiosk explicitly. */
+function useNoZoom() {
+  useEffect(() => {
+    const stop = (e: Event) => e.preventDefault();
+    const multi = (e: TouchEvent) => { if (e.touches.length > 1) e.preventDefault(); };
+    document.addEventListener("gesturestart", stop);
+    document.addEventListener("touchmove", multi, { passive: false });
+    return () => {
+      document.removeEventListener("gesturestart", stop);
+      document.removeEventListener("touchmove", multi);
+    };
+  }, []);
 }
 
 export function KioskApp() {
@@ -80,6 +94,7 @@ export function KioskApp() {
   }, [profile]);
 
   useWakeLock(!!profile);
+  useNoZoom();
 
   const env: WidgetEnv = useMemo(
     () => ({ connection, token: snap.token, lite: !!profile?.lite, device: snap.device }),

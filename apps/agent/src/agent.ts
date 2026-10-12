@@ -13,15 +13,18 @@ import { ActionDispatcher } from "./actions/dispatcher.js";
 import type { AgentConfig } from "./config.js";
 import { discoveryMessages } from "./discovery.js";
 import { mockDrives, readDrives } from "./drives.js";
-import { NodeSpawner, type Spawner } from "./exec.js";
+import { DryRunSpawner, NodeSpawner, type Spawner } from "./exec.js";
 import { CommandVerifier } from "./security.js";
-import { createSensorSource, filterSensors, haSensorIds, type SensorSource } from "./sensors/index.js";
+import { createSensorSource, filterSensors, haSensors, type SensorSource } from "./sensors/index.js";
 import { AGENT_VERSION, log, throttled } from "./util.js";
 
 export interface AgentOptions {
   config: AgentConfig;
   configPath: string;
+  /** fixture sensors + fake drives + dry-run actions (end-to-end tests, demos on Linux) */
   mock?: boolean;
+  /** log actions instead of running them (default: config.dryRun, or true on non-Windows) */
+  dryRun?: boolean;
   spawner?: Spawner;
   sensorSource?: SensorSource;
   connect?: (url: string, opts: IClientOptions) => MqttClient;
@@ -36,6 +39,7 @@ export class Agent {
   private readonly dispatcher: ActionDispatcher;
   private readonly verifier: CommandVerifier;
   private readonly spawner: Spawner;
+  readonly dryRun: boolean;
   private readonly host = hostname();
   /** ids we've already published discovery configs for (re-announced when new sensors appear) */
   private discovered = new Set<string>();
@@ -46,14 +50,15 @@ export class Agent {
 
   constructor(private opts: AgentOptions) {
     this.cfg = opts.config;
-    this.spawner = opts.spawner ?? new NodeSpawner();
+    this.dryRun = !!opts.mock || (opts.dryRun ?? this.cfg.dryRun ?? process.platform !== "win32");
+    this.spawner = opts.spawner ?? (this.dryRun ? new DryRunSpawner((l) => log.info(l)) : new NodeSpawner());
     this.source = opts.sensorSource ?? createSensorSource(this.cfg, { mock: opts.mock });
-    this.dispatcher = new ActionDispatcher(
-      this.cfg.actions,
-      this.spawner,
-      { platform: process.platform, env: process.env, configDir: dirname(opts.configPath) },
-      { mock: opts.mock },
-    );
+    this.dispatcher = new ActionDispatcher(this.cfg.actions, this.spawner, {
+      // in mock mode plan as Windows, so the logged commands are the ones the real PC would run
+      platform: opts.mock ? "win32" : process.platform,
+      env: process.env,
+      configDir: dirname(opts.configPath),
+    });
     this.verifier = new CommandVerifier(this.cfg.key, opts.now ?? Date.now);
   }
 
@@ -65,7 +70,8 @@ export class Agent {
     const { mqtt: m, pcId } = this.cfg;
     const connect = this.opts.connect ?? mqtt.connect;
     log.info(
-      `HomePanel agent ${AGENT_VERSION} starting: pc=${pcId} broker=${m.url} sensors=${this.source.name}${this.opts.mock ? " (MOCK)" : ""}`,
+      `HomePanel agent ${AGENT_VERSION} starting: pc=${pcId} broker=${m.url} sensors=${this.source.name}` +
+        `${this.opts.mock ? " (MOCK)" : ""}${this.dryRun ? " actions=dry-run" : ""}`,
     );
     const client = connect(m.url, {
       clientId: m.clientId ?? `homepanel-agent-${pcId}`,
@@ -148,20 +154,23 @@ export class Agent {
     try {
       sensors = await this.readSensors();
     } catch (e) {
-      this.sensorWarn(() => log.warn(`sensor read failed: ${(e as Error).message}. ${this.source.hint ?? ""}`));
+      this.sensorWarn(() => log.warn(`sensor read failed: ${(e as Error).message}`));
       return;
     }
+    const primaryErr = (this.source as { lastPrimaryError?: Error }).lastPrimaryError;
+    if (primaryErr) this.sensorWarn(() => log.warn(`${primaryErr.message} — publishing built-in CPU/RAM load only.`));
     const payload: AgentSensorsPayload = { ts: Date.now(), pc: this.cfg.pcId, hostname: this.host, sensors };
     this.publishDiscovery(sensors);
     this.publish(topics.sensors(this.cfg.pcId), payload, false, 0);
   }
 
   private publishDiscovery(sensors: AgentSensor[]) {
-    const wanted = haSensorIds(sensors, this.cfg.ha_sensors).filter((s) => !this.discovered.has(s.id));
+    if (!this.cfg.haDiscovery) return;
+    const wanted = haSensors(sensors, this.cfg.haSensors).filter((s) => !this.discovered.has(s.id));
     if (wanted.length === 0) return;
     for (const msg of discoveryMessages(this.cfg.pcId, this.cfg.name, wanted, this.cfg)) {
       this.publish(msg.topic, msg.payload, true, 1);
-      this.discovered.add(msg.topic.split("/").at(-2)!);
+      this.discovered.add(String(msg.payload.unique_id).slice(`homepanel_${this.cfg.pcId}_`.length));
     }
     log.info(`published Home Assistant discovery for ${wanted.length} sensor(s)`);
   }
@@ -186,12 +195,13 @@ export class Agent {
     }
     const { cmd } = v;
     if (!this.dispatcher.has(cmd.action)) {
-      log.warn(`command ${cmd.id}: unknown action "${cmd.action}" (not in agent.yaml)`);
-      this.reply({ id: cmd.id, ok: false, error: `unknown action "${cmd.action}"` });
+      // never interpreted: only ids from agent.yaml can run
+      log.warn(`command ${cmd.id}: unknown action ${JSON.stringify(cmd.action.slice(0, 64))} (not in agent.yaml)`);
+      this.reply({ id: cmd.id, ok: false, error: "unknown-action" });
       return;
     }
     if (this.busy.has(cmd.action)) {
-      this.reply({ id: cmd.id, ok: false, error: "action is already running" });
+      this.reply({ id: cmd.id, ok: false, error: "busy" });
       return;
     }
     this.busy.add(cmd.action);

@@ -13,9 +13,6 @@ importers:
       '@homepanel/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      commander:
-        specifier: ^15.0.0
-        version: 15.0.0
       mqtt:
         specifier: ^5.16.0
         version: 5.16.0
@@ -136,9 +133,6 @@ importers:
       '@fastify/websocket':
         specifier: ^11.0.2
         version: 11.3.4
-      '@homepanel/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
       '@homepanel/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -170,6 +164,10 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)(yaml@2.9.1)
+    optionalDependencies:
+      '@homepanel/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
 
   packages/ai:
     dependencies:
@@ -1138,10 +1136,6 @@ packages:
   cli-width@4.1.0:
     resolution: {integrity: sha512-ouuZd4/dm2Sw5Gmqy6bGyNNNe1qt9RpmxveLSO7KcgsTnU7RXfsw+/bukWGo1abgBiMAic068rclZsO4IWmmxQ==}
     engines: {node: '>= 12'}
-
-  commander@15.0.0:
-    resolution: {integrity: sha512-z67u4ZhzCL/Tydu1lJARtEZYWbWaN7oYLHbsuzocr6y4N6WZAagG3RQ4FW61V1/0+jImpj293XfrcYnd1qxtPg==}
-    engines: {node: '>=22.12.0'}
 
   commist@3.2.0:
     resolution: {integrity: sha512-4PIMoPniho+LqXmpS5d3NuGYncG6XWlkBSVGiWycL22dd42OYdUGil2CWuzklaJoNxyxUSpO4MKIBU94viWNAw==}
@@ -2702,8 +2696,6 @@ snapshots:
   check-error@2.1.3: {}
 
   cli-width@4.1.0: {}
-
-  commander@15.0.0: {}
 
   commist@3.2.0: {}
 

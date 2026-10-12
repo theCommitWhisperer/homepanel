@@ -36,7 +36,7 @@ export const MOSQUITTO_SLUG = "core_mosquitto";
 export const COMMUNITY_ADDONS_REPO = "https://github.com/hassio-addons/repository";
 export const TAILSCALE_SLUG = "a0d7b954_tailscale";
 
-export const MQTT_HA_USERNAME = "homepanel-mqtt";
+export const MQTT_HA_USERNAME = "homepanel";
 export const MIN_DOCKER_ENGINE = 23;
 
 export const DOCS_URL = "https://github.com/homepanel/homepanel/tree/main/docs";

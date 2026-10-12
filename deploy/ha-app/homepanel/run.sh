@@ -45,4 +45,5 @@ fi
 export LOG_LEVEL="$(bashio::config 'log_level' 'info')"
 
 bashio::log.info "Starting HomePanel on port ${PORT}"
+export KIOSK_DIST=/app/kiosk-dist
 exec node /app/dist/index.js

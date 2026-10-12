@@ -17,20 +17,21 @@ MQTT_USER=homepanel MQTT_PASS=... ADMIN_PASSWORD=... pnpm --filter @homepanel/se
 ### Demo (no Home Assistant, no MQTT)
 
 ```bash
-pnpm --filter @homepanel/server demo     # DATA_DIR=./.demo-data, wiped and re-created every start
+pnpm --filter @homepanel/server demo     # builds, then DEMO=1 DATA_DIR=./.demo-data (wiped and re-created every start)
 ```
 
-- Screens: `http://localhost:8080/?token=demo` (desk-monitor), `?token=demo-ipad` → kitchen-ipad, `?token=demo-fire` → fire-hd8
+- Screens: `http://localhost:8080/?token=demo` (desk-monitor), `?token=ipad` → kitchen-ipad, `?token=fire` → fire-hd8 (lite)
   (the kiosk stores the token and strips it from the URL)
 - Admin: `http://localhost:8080/admin`, password `demo`
-- Ring the doorbell: `curl -X POST localhost:8080/api/demo/ring` (body `{"doorbell":"side"}` for the Eufy-style event doorbell)
-- Fake HA: `light.living_room|kitchen|office` (brightness + rgb), `switch.desk_fan`, `sensor.outdoor_temperature`,
-  `weather.home`, `binary_sensor.front_door_ring` + `camera.front_door` (Reolink-style), `event.side_door_ring` +
-  `camera.side_door` (Eufy-style), `lock.front_door`. Service calls change the fake state and push it to screens.
-  Camera snapshots are generated SVGs with the current time; the stream is a multipart stream of SVG frames.
-- Fake PCs: `gaming-pc` (wiggling CPU/GPU/NVMe/motherboard temps, loads, fans, power, drives C: D: E:, 14 actions —
-  `sleep` needs confirm, `restart`/`shutdown` need confirm and are home-only) and `mini-pc` (the T8 Plus). Actions
-  succeed after 300 ms. `gaming-pc` has a MAC so “Wake PC” sends a real (harmless) WOL broadcast.
+- Ring the doorbell: `curl -X POST localhost:8080/api/demo/ring`
+- Fake HA: `light.living_room|kitchen|desk_lamp` (toggle, brightness, rgb), `switch.desk_fan`, `sensor.outdoor_temperature`,
+  `weather.home`, `binary_sensor.front_doorbell_ringing` + `event.front_door_visitor` + `camera.front_door` (Reolink-style),
+  `lock.front_door`. Service calls change the fake state and push it to screens. Camera snapshots are generated SVGs
+  with the current time; the stream is a multipart stream of SVG frames.
+- Fake PC `gaming-pc`: CPU package / hottest core, GPU core / hotspot / VRAM, NVMe0/1 temps, CPU/GPU load, 3 fans
+  (values drift with simulated thermal mass), drives C: 1 TB, D: 2 TB, E: 4 TB, 19 actions — `sleep` needs confirm,
+  `restart`/`shutdown` need confirm and are home-only. Actions succeed after 300 ms. It has a MAC, so "Wake PC" sends a
+  real (harmless) WOL broadcast.
 
 Demo refuses to wipe a non-empty `DATA_DIR` that it didn't create.
 
@@ -48,6 +49,8 @@ Demo refuses to wipe a non-empty `DATA_DIR` that it didn't create.
 | `ADMIN_PASSWORD` | generated | if unset, a random one is written to `DATA_DIR/admin-password.txt` and logged once |
 | `KIOSK_DIST` | `../kiosk/dist` (relative to this package) | |
 | `DEMO` | – | `1` = demo mode (also `--demo` flag) |
+
+Variables can also live in `DATA_DIR/.env` (written by the installer); real environment variables win.
 | `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_BASE_URL` | – | override `config.yaml` → `assistant` |
 | `TRUST_PROXY` | – | `1` behind a reverse proxy (uses `X-Forwarded-For` for the home/remote decision) |
 | `WOL_BROADCAST` | `255.255.255.255` | e.g. `192.168.1.255` |
@@ -98,7 +101,7 @@ Device auth: `Authorization: Bearer <token>` or `?t=<token>`. Admin auth: `Autho
   Tailscale `100.64.0.0/10` and `fd7a:115c:a1e0::/48` — is **remote**. Remote screens get `device.remote: true`
   and agent actions with a `home-only` guard are refused (`error: "home-only"`).
 - Actions with a `confirm` guard need `confirmed: true` in the WS `action` message, else `error: "confirm-required"`.
-- Agent commands are signed: `sig = hex(HMAC-SHA256(agentKey, "${id}.${action}.${ts}"))`, result awaited 8 s.
+- Agent commands are signed: `sig = hex(HMAC-SHA256(agentKey, "${id}.${action}.${ts}"))`, result awaited 10 s.
 - Screens never see the HA token; camera images go through the proxy.
 
 ## Doorbells
@@ -108,7 +111,6 @@ Device auth: `Authorization: Bearer <token>` or `?t=<token>`. Admin auth: `Autho
 ```yaml
 doorbells:
   front: { provider: reolink, ring: binary_sensor.front_door_visitor, camera: camera.front_door_fluent }
-  side:  { provider: eufy, ring: event.side_door_ring, camera: camera.side_door }
 on_ring: { show_on: [], wake_screens: true, close_after: 60s }
 fully_kiosk:
   <deviceId>: { url: "http://192.168.1.50:2323", password: "..." }
@@ -117,6 +119,11 @@ fully_kiosk:
 A `binary_sensor` rings on its off→on edge, an `event.*` entity on every new state. Rings are debounced 10 s
 per doorbell. Screens whose profile is in `show_on` (or all) get a `takeover`; Fully Kiosk screens get
 `screenOn` + `toForeground`. A `takeover_end` follows after `close_after`.
+
+## Live updates
+
+Screens subscribe to data keys; the current value is sent at once, then changes. `agent:<pc>:sensors` is throttled per
+screen to 1/s (1 per 10 s for `lite: true` profiles), always delivering the newest value.
 
 ## Develop
 

@@ -48,9 +48,13 @@ export function placeStyle(w: WidgetPlacement, p: Profile): React.CSSProperties 
   const [c, r, cw, rh] = w.at;
   const col = Math.min(c, p.grid.cols - 1);
   const row = Math.min(r, p.grid.rows - 1);
+  const span = Math.max(1, Math.min(rh, p.grid.rows - row));
   return {
     gridColumn: `${col + 1} / span ${Math.max(1, Math.min(cw, p.grid.cols - col))}`,
-    gridRow: `${row + 1} / span ${Math.max(1, Math.min(rh, p.grid.rows - row))}`,
+    gridRow: `${row + 1} / span ${span}`,
+    // used by the stacked phone layout: reading order + a height proportional to the row span
+    order: row * 100 + col,
+    ["--rows" as any]: span,
   };
 }
 

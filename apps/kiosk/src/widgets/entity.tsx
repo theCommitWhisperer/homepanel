@@ -72,7 +72,22 @@ export default defineWidget({
       if (!r.ok) toast(label + ": " + (r.error ?? "failed"), "error");
     };
     const on = isOn(e);
-    const body = (
+    // short tiles (a single grid row): one line, label left, value right
+    const row = h > 0 && h < 76;
+    const rowSize = Math.max(18, Math.min(h * 0.62, 34));
+    const body = row ? (
+      <>
+        <div className="entity-label">{label}</div>
+        {canToggle ? (
+          <span className={"switch inline" + (on ? " on" : "")} aria-hidden><span /></span>
+        ) : (
+          <div className="entity-value num" style={{ fontSize: rowSize }}>
+            {value}
+            {unit && isFinite(num) && <span className="unit">{unit}</span>}
+          </div>
+        )}
+      </>
+    ) : (
       <>
         <div className="entity-label">{label}</div>
         <div className={"entity-value num" + (canToggle && on ? " on" : "")} style={{ fontSize: canToggle ? Math.min(big, 44) : big }}>
@@ -83,9 +98,9 @@ export default defineWidget({
       </>
     );
     return canToggle ? (
-      <button ref={ref as any} className="entity tappable" aria-pressed={on} onClick={toggle}>{body}</button>
+      <button ref={ref as any} className={"entity tappable" + (row ? " row" : "")} aria-pressed={on} onClick={toggle}>{body}</button>
     ) : (
-      <div ref={ref} className="entity">{body}</div>
+      <div ref={ref} className={"entity" + (row ? " row" : "")}>{body}</div>
     );
   },
 });

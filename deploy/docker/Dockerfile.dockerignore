@@ -1,0 +1,9 @@
+# Used by BuildKit for deploy/docker/Dockerfile (paths relative to the repo-root context).
+**/node_modules
+**/dist
+**/.demo-data
+apps/server/data
+apps/agent
+apps/installer
+docs
+.git

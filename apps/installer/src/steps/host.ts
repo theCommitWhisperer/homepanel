@@ -147,8 +147,8 @@ async function setupDocker(ctx: StepContext): Promise<"done" | "failed" | "manua
   mkdirSync(join(dir, "mosquitto"), { recursive: true });
   ctx.store.update({ dockerDir: dir });
 
-  const compose = await deployFile(ctx, "compose.yaml");
-  const mosqConf = await deployFile(ctx, "mosquitto/mosquitto.conf");
+  const compose = await deployFile(ctx, "compose/compose.yaml");
+  const mosqConf = await deployFile(ctx, "compose/mosquitto/mosquitto.conf");
   writeFileSync(join(dir, "compose.yaml"), compose);
   writeFileSync(join(dir, "mosquitto", "mosquitto.conf"), mosqConf);
 
@@ -307,7 +307,7 @@ async function setupVbox(ctx: StepContext): Promise<"done" | "failed" | "manual"
     }
   }
   out.ok("VM started. Home Assistant needs 5–20 minutes on first boot.");
-  out.info("Tip: VirtualBox → the VM → Settings → General → Advanced: nothing to change. To autostart with Windows, see docs/hardware/vm-windows.md.");
+  out.info("Tip: VirtualBox → the VM → Settings → General → Advanced: nothing to change. To autostart with Windows, see docs/hosts.md#windows-virtualbox.");
   return "done";
 }
 

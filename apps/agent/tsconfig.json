@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src", "types": ["node"] },
-  "include": ["src"]
+  "compilerOptions": { "noEmit": true, "rootDir": "src", "types": ["node"], "resolveJsonModule": true },
+  "include": ["src", "src/fixtures/*.json"]
 }

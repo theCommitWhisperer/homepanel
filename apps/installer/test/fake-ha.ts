@@ -88,6 +88,22 @@ export async function startFakeHa(opts: { onboarded?: boolean; haOs?: boolean } 
       state.accessTokens.add(tok);
       return json(200, { access_token: tok, token_type: "Bearer", refresh_token: id("refresh"), expires_in: 1800 });
     }
+    if (p === "/auth/login_flow" && req.method === "POST") {
+      state.clientIds.push(body.client_id);
+      const fid = id("login");
+      state.flows.set(fid, { handler: "login", step: "init" });
+      return json(200, { type: "form", flow_id: fid, step_id: "init", data_schema: [{ name: "username" }, { name: "password" }] });
+    }
+    const lm = /^\/auth\/login_flow\/(.+)$/.exec(p);
+    if (lm && req.method === "POST") {
+      if (!state.flows.has(lm[1]!)) return json(404, {});
+      const u = state.users.find((x) => x.username === body.username && x.password === body.password);
+      if (!u) return json(200, { type: "form", flow_id: lm[1], step_id: "init", errors: { base: "invalid_auth" } });
+      state.flows.delete(lm[1]!);
+      const code = id("code");
+      state.authCodes.set(code, u.id);
+      return json(200, { type: "create_entry", flow_id: lm[1], result: code });
+    }
     if (p.startsWith("/api/onboarding/") && req.method === "POST") {
       if (!authed()) return json(401, { message: "Unauthorized" });
       const step = p.split("/").pop()!;
@@ -175,6 +191,13 @@ export async function startFakeHa(opts: { onboarded?: boolean; haOs?: boolean } 
         }
         case "get_config":
           return ok({ version: "2026.10.0", components: opts.haOs ? ["hassio", "mqtt"] : ["mqtt"], ...state.coreConfig });
+        case "get_states":
+          return ok([
+            { entity_id: "light.kitchen", state: "on", attributes: {} },
+            { entity_id: "sensor.outside", state: "12", attributes: {} },
+          ]);
+        case "zha/devices":
+          return state.configEntries.some((e) => e.domain === "zha") ? ok([{ ieee: "00:11", name: "ZBT-1 coordinator" }]) : fail("unknown_command", "Unknown command.");
         case "config_entries/get":
           return ok(state.configEntries.filter((e) => !m.domain || e.domain === m.domain));
         case "config/auth/list":

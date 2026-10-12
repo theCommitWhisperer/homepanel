@@ -8,6 +8,7 @@ import type { StepContext } from "./steps/types.js";
 import { systemInfo } from "./sys.js";
 import { color, memoryOut, teeOut } from "./ui.js";
 import { runStep } from "./wizard.js";
+import { healthSummary } from "./steps/finish.js";
 
 export const SYSTEM_PROMPT = `You are the HomePanel setup guide, running inside the \`homepanel setup\` command on the user's computer.
 HomePanel is a self-hosted dashboard for wall tablets and screens, built on Home Assistant (HA).
@@ -17,11 +18,13 @@ Tailscale remote access, screens (iPad, Fire HD 8, Android, Pi, Windows) and PC 
 
 How to work:
 - Be friendly, short and concrete. Plain language, no jargon without a one-line explanation. One topic at a time.
-- Use the look tools (system_info, scan_network, check_ha, read_state, explain_step, open_guide) freely to find out where things stand before advising.
+- Use the look tools (system_info, scan_network, check_ha, check_mqtt, read_state, explain_step, open_guide) freely to find out where things stand before advising.
 - The setup is made of steps: ${STEP_IDS.join(", ")}. To actually do a step, call run_step(step_id). The user sees exactly what it will do and must approve. Steps ask their own questions in the terminal (names, IPs, hidden passwords) — tell the user to answer there.
 - NEVER ask the user to type passwords, tokens or API keys into the chat. If you need one, call ask_secret(label); it prompts locally with hidden input and gives you only a placeholder like $SECRET_1. Steps ask for their own secrets, so you rarely need ask_secret.
 - If the user pastes something that looks like a secret anyway, tell them it is redacted and they should rotate it if it was sensitive.
-- Don't invent facts about hardware or HA versions. If unsure, say so and point to open_guide.
+- Never invent facts (IP addresses, versions, whether something is installed). Check with a tool first; if no tool can tell, say you don't know and point to open_guide.
+- Stay on HomePanel / Home Assistant setup. Politely decline unrelated requests.
+- Keep replies under about 120 words unless the user asks for detail.
 - After a step runs, summarise the result in one or two sentences and suggest the next step.`;
 
 export interface GuideOptions {
@@ -59,6 +62,22 @@ export function guideTools(ctx: StepContext): ToolDef[] {
         const c = new HaClient(url, { fetchImpl: ctx.fetchImpl, token: ctx.store.secrets.haToken });
         const s = await c.onboardingStatus();
         return { url: c.url, status: s, tokenValid: ctx.store.secrets.haToken ? await c.apiOk() : "no token saved" };
+      },
+    },
+    {
+      name: "check_mqtt",
+      description: "Check MQTT: is the HA MQTT integration set up and loaded, is a broker login saved, does the HomePanel server see MQTT.",
+      parameters: { type: "object", properties: {} },
+      kind: "look",
+      run: async () => {
+        const h = await healthSummary(ctx);
+        return {
+          haMqttIntegration: h.mqtt.integration,
+          brokerLoginSaved: !!ctx.store.secrets.mqttPassword,
+          broker: ctx.store.state.mqtt ?? "unknown",
+          serverMqtt: h.server ? (h.server.mqtt ?? h.server.error) : "server address unknown",
+          haError: h.ha.error,
+        };
       },
     },
     {
@@ -212,7 +231,18 @@ export async function aiGuide(ctx: StepContext, opts: GuideOptions): Promise<"ex
   for (;;) {
     messages = reply.messages;
     show(messages);
-    if (reply.error) out.err(reply.error);
+    if (reply.error) {
+      out.err(reply.error);
+      const next = await prompt.select({
+        message: "The AI guide hit a problem. What now?",
+        choices: [
+          { value: "wizard", name: "Continue with the plain wizard (recommended)" },
+          { value: "retry", name: "Keep chatting / try again" },
+          { value: "exit", name: "Stop (progress is saved)" },
+        ],
+      });
+      if (next === "wizard" || next === "exit") return next;
+    }
     if (reply.pending) {
       out.line(color.bold(color.yellow("The guide wants to:")));
       out.line("  " + reply.pending.summary);

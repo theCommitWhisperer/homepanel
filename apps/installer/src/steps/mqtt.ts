@@ -35,10 +35,17 @@ export async function ensureAppRunning(
 }
 
 /** Create (or reset the password of) the local HA user the broker login uses. */
-export async function ensureMqttUser(s: HaSocket, username: string, password: string): Promise<"created" | "updated"> {
+export async function ensureMqttUser(
+  s: HaSocket,
+  username: string,
+  password: string,
+  /** asked before resetting the password of a user this installer didn't create; false = keep it */
+  allowReset: () => Promise<boolean> = async () => true,
+): Promise<"created" | "updated" | "kept"> {
   const users = await s.listUsers();
   const existing = users.find((u) => u.username === username);
   if (existing) {
+    if (!(await allowReset())) return "kept";
     await s.changeLocalUserPassword(existing.id, password);
     return "updated";
   }
@@ -177,8 +184,18 @@ export const mqttStep: Step = {
       await client.withWs(async (s) => {
         const st = await ensureAppRunning(s, MOSQUITTO_SLUG, (m) => out.info(m));
         out.ok(st === "started" ? "Mosquitto broker app is running." : "Mosquitto installed (not started yet).");
-        const pw = ctx.store.secrets.mqttPassword ?? randomPassword();
-        const r = await ensureMqttUser(s, MQTT_HA_USERNAME, pw);
+        const saved = ctx.store.secrets.mqttPassword;
+        const pw = saved ?? randomPassword();
+        const r = await ensureMqttUser(s, MQTT_HA_USERNAME, pw, async () =>
+          // our own earlier run: resetting to the saved password is a no-op; otherwise ask
+          saved
+            ? true
+            : ctx.prompt.confirm({
+                message: `HA already has a user '${MQTT_HA_USERNAME}'. Reset its password so HomePanel can use it for MQTT?`,
+                default: false,
+              }),
+        );
+        if (r === "kept") throw new Error(`kept the existing '${MQTT_HA_USERNAME}' password; enter it manually below`);
         ctx.store.setSecret("mqttPassword", pw);
         ctx.vault.add("mqttPassword", pw);
         out.ok(`HA user '${MQTT_HA_USERNAME}' ${r} for broker logins.`);

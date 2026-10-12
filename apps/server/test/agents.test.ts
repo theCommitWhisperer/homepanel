@@ -1,9 +1,10 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { signingString, topics } from "@homepanel/protocol";
-import { AgentManager, buildCommand, signCommand } from "../src/agents.js";
-import { StateHub } from "../src/hub.js";
-import { isRemoteIp, magicPacket } from "../src/net.js";
+import { AgentManager, buildCommand, signCommand } from "../src/mqtt/agents.js";
+import { StateHub } from "../src/ws/hub.js";
+import { isRemoteIp } from "../src/net.js";
+import { magicPacket } from "../src/wol.js";
 import { tmpDir } from "./helpers.js";
 
 describe("command signing", () => {
@@ -106,5 +107,27 @@ describe("agent guards", () => {
     expect(p).toHaveLength(102);
     expect(p.subarray(0, 6).toString("hex")).toBe("ffffffffffff");
     expect(p.subarray(96, 102).toString("hex")).toBe("aabbccddeeff");
+  });
+});
+
+describe("review fixes: agent registry lookups", () => {
+  it("refuses actions before the PC has advertised its action list (guards unknown)", async () => {
+    const mgr = new AgentManager(tmpDir(), new StateHub(), async () => {});
+    const published: string[] = [];
+    mgr.transport = { status: "connected", publish: (t) => void published.push(t), stop() {} };
+    mgr.register("pc1", "PC", undefined, "key1");
+    mgr.handleMessage(topics.status("pc1"), "online");
+    expect(await mgr.runAction("pc1", "shutdown", { remote: true, confirmed: false })).toEqual({ ok: false, error: "actions-unknown" });
+    expect(published).toHaveLength(0);
+  });
+
+  it("treats prototype property names as unknown PCs", async () => {
+    const mgr = new AgentManager(tmpDir(), new StateHub(), async () => {});
+    mgr.transport = { status: "connected", publish() {}, stop() {} };
+    for (const pc of ["constructor", "__proto__", "toString"]) {
+      expect(await mgr.runAction(pc, "x", { remote: false, confirmed: true })).toEqual({ ok: false, error: "unknown-pc" });
+      expect(await mgr.wake(pc)).toEqual({ ok: false, error: "unknown-pc" });
+      expect(mgr.unregister(pc)).toBe(false);
+    }
   });
 });

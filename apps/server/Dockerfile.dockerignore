@@ -1,6 +1,0 @@
-# BuildKit picks this up for apps/server/Dockerfile (paths relative to the repo root context)
-**/node_modules
-**/dist
-**/.demo-data
-apps/server/data
-.git

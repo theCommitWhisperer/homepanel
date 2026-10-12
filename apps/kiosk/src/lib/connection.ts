@@ -29,11 +29,37 @@ export interface ActionResult {
 }
 
 const ACTION_TIMEOUT_MS = 15_000;
+export const PING_MS = 25_000;
+/** No message for this long → the socket is considered dead (common after a tablet sleeps). */
+export const DEAD_MS = 60_000;
+
+/** Exponential backoff with jitter: ~1 s, 1.7 s, 2.9 s … capped at 30 s. */
+export function backoffMs(attempt: number, rand = Math.random()): number {
+  return Math.round(Math.min(30_000, 1000 * Math.pow(1.7, attempt)) * (0.75 + rand * 0.5));
+}
+
+/** Minimal WebSocket surface the connection needs (lets tests use a fake). */
+export interface SocketLike {
+  readyState: number;
+  send(data: string): void;
+  close(): void;
+  onopen: ((ev?: unknown) => void) | null;
+  onmessage: ((ev: { data: unknown }) => void) | null;
+  onclose: ((ev?: unknown) => void) | null;
+  onerror: ((ev?: unknown) => void) | null;
+}
+
+export interface ConnectionOptions {
+  createSocket?: (url: string) => SocketLike;
+  url?: () => string;
+}
 
 /** One WebSocket to the server: hello → welcome, subscriptions, actions, takeovers. */
 export class Connection {
   readonly store = new DataStore();
-  private ws: WebSocket | null = null;
+  private ws: SocketLike | null = null;
+  private createSocket: (url: string) => SocketLike;
+  private url: () => string;
   private snap: ConnSnapshot;
   private listeners = new Set<() => void>();
   private keys: DataKey[] = [];
@@ -45,7 +71,9 @@ export class Connection {
   private seq = 0;
   private stopped = true;
 
-  constructor() {
+  constructor(opts: ConnectionOptions = {}) {
+    this.createSocket = opts.createSocket ?? ((u) => new WebSocket(u) as unknown as SocketLike);
+    this.url = opts.url ?? (() => wsUrl("/ws"));
     const token = local.get(TOKEN_KEY);
     this.snap = { status: token ? "connecting" : "no-token", token, device: null, profile: null, takeover: null, lastError: null };
   }
@@ -119,9 +147,9 @@ export class Connection {
     this.clearTimers();
     const token = this.snap.token;
     if (!token) return;
-    let ws: WebSocket;
+    let ws: SocketLike;
     try {
-      ws = new WebSocket(wsUrl("/ws"));
+      ws = this.createSocket(this.url());
     } catch {
       this.scheduleReconnect();
       return;
@@ -131,7 +159,7 @@ export class Connection {
       this.lastMessageAt = Date.now();
       this.raw({ type: "hello", deviceToken: token });
       this.pingTimer = setInterval(() => {
-        if (Date.now() - this.lastMessageAt > 45_000) {
+        if (Date.now() - this.lastMessageAt > DEAD_MS) {
           // dead socket (common after a tablet sleeps); force a reconnect
           try {
             ws.close();
@@ -141,7 +169,7 @@ export class Connection {
           return;
         }
         this.raw({ type: "ping" });
-      }, 20_000);
+      }, PING_MS);
     };
     ws.onmessage = (ev) => {
       this.lastMessageAt = Date.now();
@@ -167,7 +195,7 @@ export class Connection {
 
   private scheduleReconnect(delay?: number) {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
-    const d = delay ?? Math.min(30_000, 1000 * Math.pow(1.7, this.attempt)) * (0.75 + Math.random() * 0.5);
+    const d = delay ?? backoffMs(this.attempt);
     this.attempt++;
     this.patch({ status: "reconnecting" });
     this.reconnectTimer = setTimeout(() => this.open(), d);
@@ -237,6 +265,10 @@ export class Connection {
     if (uniq.join("\n") === this.keys.join("\n")) return;
     this.keys = uniq;
     this.raw({ type: "subscribe", keys: uniq });
+  }
+
+  get reconnectAttempt() {
+    return this.attempt;
   }
 
   get subscribedKeys() {

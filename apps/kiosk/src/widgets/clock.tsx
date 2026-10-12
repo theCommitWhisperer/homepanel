@@ -5,12 +5,13 @@ import { useNow, useSize } from "../components";
 export default defineWidget({
   type: "clock",
   name: "Clock",
-  configSchema: z.object({ format24: z.boolean().optional(), showDate: z.boolean().optional() }),
+  // format: "12h" | "24h" (format24: true is accepted as an alias)
+  configSchema: z.object({ format: z.enum(["12h", "24h"]).optional(), format24: z.boolean().optional(), showDate: z.boolean().optional() }),
   keys: () => [],
   Component: ({ config }) => {
     const now = new Date(useNow(1000));
     const [ref, { w, h }] = useSize<HTMLDivElement>();
-    const h24 = config.format24 ?? false;
+    const h24 = config.format ? config.format === "24h" : config.format24 ?? false;
     let hh = now.getHours();
     const ampm = hh >= 12 ? "PM" : "AM";
     if (!h24) hh = hh % 12 || 12;

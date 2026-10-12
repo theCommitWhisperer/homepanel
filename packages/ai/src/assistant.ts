@@ -65,6 +65,8 @@ export class Assistant {
   private internal: WireMessage[] = [];
   private visible: ChatMessage[] = [];
   private pending?: PendingState;
+  /** set when the provider rejected tool calling: we continue as plain chat */
+  private plainChat = false;
 
   constructor(opts: AssistantOptions) {
     this.providers = Array.isArray(opts.provider) ? opts.provider : [opts.provider];
@@ -229,13 +231,41 @@ export class Assistant {
     });
   }
 
+  /** Transcript without tool traffic, for providers that cannot do tool calling. */
+  private outgoingPlain(): WireMessage[] {
+    const note =
+      "\n\n(Note: tools are unavailable with this model. Answer from general knowledge, say clearly when you " +
+      "are unsure, and tell the user which steps they must do themselves.)";
+    return this.outgoing()
+      .filter((m) => m.role !== "tool" && !(m.role === "assistant" && !m.content))
+      .map((m) => {
+        if (m.role === "system") return { role: "system", content: m.content + note } as WireMessage;
+        if (m.role === "assistant") return { role: "assistant", content: m.content } as WireMessage;
+        return m;
+      });
+  }
+
   private async loop(): Promise<AssistantReply> {
     const tools = this.wireTools();
     for (let round = 0; round <= this.maxRounds; round++) {
       let res;
       try {
-        res = await chatWithFallback(this.providers, { messages: this.outgoing(), tools }, this.fetchImpl);
+        res = this.plainChat || !tools.length
+          ? await chatWithFallback(this.providers, { messages: this.plainChat ? this.outgoingPlain() : this.outgoing() }, this.fetchImpl)
+          : await chatWithFallback(this.providers, { messages: this.outgoing(), tools }, this.fetchImpl);
       } catch (e) {
+        if (e instanceof AiError && e.kind === "no-tools" && !this.plainChat && tools.length) {
+          // Provider/model can't do function calling: continue as plain chat, and tell the user.
+          this.plainChat = true;
+          this.visible.push({
+            role: "assistant",
+            content:
+              "Note: this AI model does not support tool calling, so I can't check or change anything myself. " +
+              "I'll answer as plain chat — for hands-on help pick a tool-capable model or provider.",
+          });
+          round--;
+          continue;
+        }
         return this.reply(e instanceof AiError ? e.message : `AI request failed: ${String(e)}`);
       }
       this.internal.push(res.message);

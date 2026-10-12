@@ -1,4 +1,4 @@
-# Fire HD 8 (10th gen) — low-power "lite" profile: no animations, snapshots instead of video
+# Fire HD 8 — low-power "lite" profile: no animations, slower sensor updates, snapshots instead of video
 id: fire-hd8
 name: Fire HD 8
 grid: { cols: 4, rows: 6 }
@@ -8,6 +8,7 @@ widgets:
   - id: clock
     type: clock
     at: [0, 0, 4, 2]
+    format: 24h
     format24: true
     showDate: true
 
@@ -15,22 +16,22 @@ widgets:
     type: lights
     title: Lights
     at: [0, 2, 4, 2]
-    entities: [light.living_room, light.kitchen, light.office]
+    entities: [light.living_room, light.kitchen, light.desk_lamp]
 
   - id: buttons
     type: buttons
     at: [0, 4, 4, 2]
     buttons:
       - label: All off
-        icon: "🌙"
-        action: { kind: ha, domain: light, service: turn_off, data: { entity_id: [light.living_room, light.kitchen, light.office] } }
-      - label: Desk fan
-        icon: "🌀"
-        action: { kind: ha, domain: switch, service: toggle, data: { entity_id: switch.desk_fan } }
+        icon: moon
+        action: { kind: ha, domain: light, service: turn_off, data: { entity_id: [light.living_room, light.kitchen, light.desk_lamp] } }
+      - label: Desk lamp
+        icon: lamp
+        action: { kind: ha, domain: light, service: toggle, data: { entity_id: light.desk_lamp } }
       - label: Lock PC
-        icon: "🔒"
+        icon: lock
         action: { kind: agent, pc: gaming-pc, action: lock }
       - label: PC sleep
-        icon: "😴"
+        icon: moon
         action: { kind: agent, pc: gaming-pc, action: sleep }
         confirm: true

@@ -2,12 +2,13 @@
 
 HomePanel can use an AI model in two places:
 
-1. **Setup guide** in `homepanel setup`. You chat with it, and it explains each step, checks your network and HA, and runs
+1. **Setup guide** in `homepanel setup --ai` (also offered when `homepanel setup` starts). You chat with it, and it explains each step, checks your network and HA, and runs
    setup steps for you, but only after you confirm each one (it shows exactly what will happen first).
 2. **Admin assistant** in `/admin`. It helps you build widgets ("add a card with the CPU temp of the gaming PC"), register
    PCs, and add doorbells. Changes are shown first and only applied when you tap **Approve**.
 
-Both are optional. The plain wizard and the admin UI do everything without AI.
+Both are optional. The plain wizard and the admin UI do everything without AI, and if the AI fails mid-way
+`homepanel setup` offers to continue with the plain wizard.
 
 ## Providers
 
@@ -15,15 +16,22 @@ All providers use the OpenAI-compatible chat API with **tool calling**, which th
 
 | Provider | Cost | Key | Default model | Notes |
 | --- | --- | --- | --- | --- |
-| **Gemini** | free tier | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-flash-latest` | Good quality. **On the free tier, Google may use your prompts to improve its products.** |
+| **Gemini** | free tier | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | `gemini-3.8-flash` | Good quality. **On the free tier, Google uses your prompts to improve its products** (and humans may review them). Alternatives: `gemini-3.6-flash`, `gemini-3.5-flash-lite`. |
 | **Groq** | free tier | [console.groq.com/keys](https://console.groq.com/keys) | `openai/gpt-oss-120b` | Very fast. Per-minute limits. If that model is unavailable, try `llama-3.3-70b-versatile`. |
 | **OpenRouter** | free models | [openrouter.ai/keys](https://openrouter.ai/keys) | `openrouter/free` | Routes to a free model that supports tools. About 50 free requests/day without credits. Free models may log prompts. |
 | **Ollama** | free, local | none | `qwen3:8b` | Runs on your own computer, and nothing leaves your network. |
 | **LM Studio** | free, local | none | (model you load) | Same as Ollama, with a GUI. |
 | **Custom** | — | maybe | — | Any OpenAI-compatible endpoint (base URL + model + key). |
 
+**The catch with free cloud tiers:** you pay with data. Free tiers of Gemini, and many free OpenRouter models, may keep and
+use what you send for training or review, and limits change without notice. The setup guide never sends secrets (see below),
+but it does send your chat and setup progress. If that bothers you, run a local model.
+
 **Model names change often.** If a default stops working, open the provider's model list and enter a current
 tool-capable model name. Both the installer and the server let you override the model.
+
+If a model doesn't support tool calling, the assistant tells you and continues as plain chat (it can explain, but
+can't check or change anything). Pick a tool-capable model for hands-on help.
 
 A free-tier limit shows as a "429 / rate limit" message. Wait a minute or switch to another provider. (The
 `@homepanel/ai` library can also try several providers in order. Whether the server exposes that as a setting depends

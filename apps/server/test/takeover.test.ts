@@ -50,3 +50,15 @@ describe("ring detection", () => {
     tm.stop();
   });
 });
+
+describe("review fixes: doorbell name lookup", () => {
+  it("ignores prototype property names", async () => {
+    const { TakeoverManager } = await import("../src/takeover.js");
+    const { ServerConfigFileSchema } = await import("@homepanel/protocol");
+    const cfg = ServerConfigFileSchema.parse({});
+    const log = { info() {}, debug() {}, warn() {} } as any;
+    const t = new TakeoverManager({ getConfig: () => cfg, targets: () => new Set(), deviceProfile: () => undefined, log });
+    expect(t.ring("constructor")).toBeUndefined();
+    expect(t.ring("toString")).toBeUndefined();
+  });
+});

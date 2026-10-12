@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { z } from "zod";
 import type { HaEntityState } from "@homepanel/protocol";
-import { defineWidget, useAction, useKey } from "../sdk";
+import { defineWidget, useAction, useKey, useKeysMatching } from "../sdk";
 import { Sheet, usePress, useSize } from "../components";
 import { fitGrid } from "../lib/store";
 import { toast } from "../lib/toast";
 import { Icon } from "../icons";
 import { brightnessPct, domainOf, friendly, isOn, lightRgb, supportsBrightness, supportsColor, unavailable } from "./ha-util";
 
-const schema = z.object({ entities: z.array(z.string()).min(1) });
+/** entities omitted → every light Home Assistant has (wildcard key `ha:light.*`). */
+const schema = z.object({ entities: z.array(z.string()).min(1).optional() });
+export const ALL_LIGHTS = "ha:light.*";
+export const lightKeys = (c: { entities?: string[] }) => (c.entities && c.entities.length ? c.entities.map((id) => "ha:" + id) : [ALL_LIGHTS]);
 
 const SWATCHES: [string, number[]][] = [
   ["Warm", [255, 180, 107]], ["Daylight", [255, 244, 229]], ["Red", [255, 64, 48]], ["Orange", [255, 140, 0]],
@@ -102,14 +105,17 @@ export default defineWidget({
   type: "lights",
   name: "Lights",
   configSchema: schema,
-  keys: (c) => c.entities.map((id) => "ha:" + id),
+  keys: lightKeys,
   Component: ({ config }) => {
+    const all = useKeysMatching(config.entities && config.entities.length ? null : ALL_LIGHTS);
+    const ids = config.entities && config.entities.length ? config.entities : all.map((k) => k.slice(3));
     const [ref, { w, h }] = useSize<HTMLDivElement>();
-    const { cols, rows, scroll } = fitGrid(config.entities.length, w, h, 120, 64);
+    const { cols, rows, scroll } = fitGrid(Math.max(1, ids.length), w, h, 120, 64);
     const dense = scroll || h / rows < 110 || w / cols < 130;
     return (
       <div ref={ref} className={"lights" + (scroll ? " scroll" : "")} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0,1fr))`, gridTemplateRows: scroll ? `repeat(${rows}, 72px)` : `repeat(${rows}, minmax(0,1fr))` }}>
-        {config.entities.map((id) => <LightTile key={id} id={id} dense={dense} />)}
+        {!ids.length && <div className="empty">Looking for lights…</div>}
+        {ids.map((id) => <LightTile key={id} id={id} dense={dense} />)}
       </div>
     );
   },

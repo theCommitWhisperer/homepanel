@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parseArgs } from "../src/args.js";
 import { ConfigError, defaultConfigPath, parseConfig, resolveConfigPath } from "../src/config.js";
+import { defaultConfigYaml, EXAMPLE_INIT } from "../src/defaults.js";
 
 const minimal = `
 pcId: gaming-pc
@@ -17,25 +19,44 @@ describe("config", () => {
       publishIntervalMs: 2000,
       drivesIntervalMs: 60000,
       sensors: "auto",
-      ha_sensors: "default",
-      sensorSource: "auto",
+      haDiscovery: true,
+      haSensors: "default",
       lhmUrl: "http://localhost:8085/data.json",
       actions: {},
     });
-    expect(c.mqtt.rejectUnauthorized).toBe(true);
   });
 
-  it("the shipped example is valid and has the day-one actions", () => {
-    const text = readFileSync(new URL("../agent.example.yaml", import.meta.url), "utf8");
-    const c = parseConfig(text);
-    for (const id of [
+  it("accepts what the setup wizard writes (sensorSource: auto, empty actions)", () => {
+    expect(parseConfig(minimal + "name: Gaming PC\nsensorSource: auto\nactions: {}\n").name).toBe("Gaming PC");
+  });
+
+  it("`init` output and the shipped example are valid and have Kevin's day-one actions", () => {
+    const fromInit = parseConfig(defaultConfigYaml(EXAMPLE_INIT));
+    const example = parseConfig(readFileSync(new URL("../agent.example.yaml", import.meta.url), "utf8"));
+    expect(example).toEqual(fromInit);
+    const ids = [
       "open-drive-c", "open-drive-d", "open-downloads", "open-projects", "launch-studio", "launch-steam",
-      "launch-discord", "play-pause", "next-track", "vol-up", "vol-down", "mute-mic", "monitors-off",
-      "audio-speakers", "audio-headphones", "lock", "sleep", "restart", "shutdown",
-    ]) expect(c.actions[id], id).toBeDefined();
-    expect(c.actions["launch-studio"]).toMatchObject({ type: "launch", find: expect.stringContaining("RobloxStudioBeta.exe") });
-    expect(c.actions["restart"]).toMatchObject({ guard: "confirm+home-only" });
-    expect(c.actions["open-drive-c"]).toMatchObject({ type: "open", path: "C:\\" });
+      "launch-discord", "media-playpause", "media-next", "vol-up", "vol-down", "mute-mic", "audio-speakers",
+      "audio-headphones", "monitors-off", "lock", "sleep", "restart", "shutdown",
+    ];
+    expect(Object.keys(fromInit.actions).sort()).toEqual([...ids].sort());
+    const a = fromInit.actions;
+    expect(a["open-drive-c"]).toMatchObject({ type: "open", path: "C:\\" });
+    expect(a["open-projects"]).toMatchObject({ type: "open", path: "D:\\Projects" });
+    expect(a["launch-steam"]).toMatchObject({ type: "launch", exe: "steam://open/main" });
+    expect(a["launch-studio"]).toMatchObject({ type: "launch", exe: "roblox-studio:" });
+    expect(a["media-playpause"]).toMatchObject({ type: "keys", keys: "media_play_pause" });
+    expect(a["sleep"]).toMatchObject({ guard: "confirm" });
+    expect(a["restart"]).toMatchObject({ guard: "confirm+home-only" });
+    expect(a["shutdown"]).toMatchObject({ guard: "confirm+home-only" });
+    // drive actions follow the open-drive-<letter> convention the kiosk drive widget relies on
+    for (const id of Object.keys(a).filter((k) => k.startsWith("open-drive-"))) expect(id).toMatch(/^open-drive-[a-z]$/);
+  });
+
+  it("init quotes awkward values safely", () => {
+    const c = parseConfig(defaultConfigYaml({ ...EXAMPLE_INIT, name: "Kevin's PC: #1", mqttPass: "p'a$s: #x", key: "k".repeat(43) }));
+    expect(c.name).toBe("Kevin's PC: #1");
+    expect(c.mqtt.password).toBe("p'a$s: #x");
   });
 
   const bad = (yaml: string, match: RegExp) => {
@@ -49,26 +70,33 @@ describe("config", () => {
     throw new Error("expected ConfigError");
   };
 
-  it("reports helpful errors", () => {
+  it("reports friendly errors with the path of the problem", () => {
     bad("pcId: Gaming PC\nmqtt: {url: 'mqtt://x'}\nkey: 0123456789abcdef0", /pcId: use lowercase/);
-    bad("pcId: pc\nmqtt: {url: 'http://x'}\nkey: 0123456789abcdef0", /mqtt\.url/);
-    bad("pcId: pc\nmqtt: {url: 'mqtt://x'}\nkey: short", /key/);
+    bad("pcId: pc\nmqtt: {url: 'http://x'}\nkey: 0123456789abcdef0", /mqtt\.url: must look like mqtt:/);
+    bad("pcId: pc\nmqtt: {url: 'mqtt://x'}\nkey: short", /key: key looks too short/);
+    bad("mqtt: {url: 'mqtt://x'}\nkey: 0123456789abcdef0", /pcId: Required/);
     bad(minimal + "actions:\n  x: { type: teleport }", /actions\.x/);
-    bad(minimal + "actions:\n  x: { type: keys, key: f13 }", /actions\.x\.key/);
-    bad(minimal + "actions:\n  x: { type: launch }", /exactly one of `exe` or `find`/);
-    bad(minimal + "actions:\n  x: { type: launch, exe: a.exe, find: b }", /exactly one/);
+    bad(minimal + "actions:\n  x: { type: keys, keys: ctrl+banana }", /actions\.x\.keys: unknown key "banana"/);
+    bad(minimal + "actions:\n  x: { type: launch }", /actions\.x\.exe: Required/);
     bad(minimal + "actions:\n  x: { type: launch, exe: 'a\"b.exe' }", /double quotes/);
-    bad(minimal + "actions:\n  Bad Id: { type: system, op: lock }", /action ids/);
-    bad(minimal + "actions:\n  x: { type: url, url: 'file:///C:/Windows' }", /actions\.x\.url: must be/);
-    bad(minimal + "actions:\n  x: { type: system, op: lock, extra: 1 }", /Unrecognized key/);
+    bad(minimal + "actions:\n  x: { type: open }", /actions\.x\.path: Required/);
+    bad(minimal + "actions:\n  x: { type: script }", /actions\.x\.script: Required/);
+    bad(minimal + "actions:\n  Bad Id: { type: system, command: lock }", /action ids/);
+    bad(minimal + "actions:\n  x: { type: system, command: format }", /actions\.x\.command/);
+    bad(minimal + "actions:\n  x: { type: url, url: 'file:///C:/Windows' }", /not allowed/);
+    bad(minimal + "actions:\n  x: { type: url, url: 'javascript:alert(1)' }", /not allowed/);
+    bad(minimal + "actions:\n  x: { type: system, command: lock, guard: maybe }", /actions\.x\.guard/);
+    bad(minimal + "actions:\n  x: { type: system, command: lock, extra: 1 }", /Unrecognized key/);
     bad(minimal + "bogus: 1", /Unrecognized key/);
+    bad(minimal + "publishIntervalMs: 10", /publishIntervalMs/);
     bad("pcId: [unclosed", /invalid YAML/);
   });
 
-  it("accepts sensor lists", () => {
-    const c = parseConfig(minimal + "sensors: [cpu_package, 'gpu_*']\nha_sensors: none");
+  it("sensor lists and HA switches", () => {
+    const c = parseConfig(minimal + "sensors: [cpu_package, 'gpu_*']\nhaDiscovery: false\nhaSensors: [cpu_package]");
     expect(c.sensors).toEqual(["cpu_package", "gpu_*"]);
-    expect(c.ha_sensors).toBe("none");
+    expect(c.haDiscovery).toBe(false);
+    expect(c.haSensors).toEqual(["cpu_package"]);
   });
 
   it("default config paths per platform", () => {
@@ -77,11 +105,20 @@ describe("config", () => {
     expect(defaultConfigPath("linux", { HOME: "/home/kevin", XDG_CONFIG_HOME: "/cfg" })).toBe("/cfg/homepanel/agent.yaml");
   });
 
-  it("resolution order: flag > env > next to program > default", () => {
+  it("resolution order: --config > env > next to the program > default", () => {
     const env = { HOME: "/home/k" };
     expect(resolveConfigPath("/x/a.yaml", { env })).toBe("/x/a.yaml");
     expect(resolveConfigPath(undefined, { env: { ...env, HOMEPANEL_AGENT_CONFIG: "/e.yaml" } })).toBe("/e.yaml");
     expect(resolveConfigPath(undefined, { env, platform: "linux", programDir: "/opt/hp", exists: (p) => p === "/opt/hp/agent.yaml" })).toBe("/opt/hp/agent.yaml");
     expect(resolveConfigPath(undefined, { env, platform: "linux", programDir: "/opt/hp", exists: () => false })).toBe("/home/k/.config/homepanel/agent.yaml");
+  });
+});
+
+describe("cli args", () => {
+  it("parses commands, flags and values", () => {
+    expect(parseArgs([])).toEqual({ command: "run", positional: [], flags: {} });
+    expect(parseArgs(["run", "--mock", "-c", "a.yaml"])).toEqual({ command: "run", positional: [], flags: { mock: true, c: "a.yaml", config: "a.yaml" } });
+    expect(parseArgs(["test-action", "lock", "--really"])).toEqual({ command: "test-action", positional: ["lock"], flags: { really: true } });
+    expect(parseArgs(["init", "--pc-id=gaming-pc", "--key", "abc"]).flags).toEqual({ "pc-id": "gaming-pc", key: "abc" });
   });
 });

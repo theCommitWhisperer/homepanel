@@ -5,16 +5,16 @@ import { discoveryMessages, valueTemplate } from "../src/discovery.js";
 describe("HA discovery", () => {
   const sensors = [
     { id: "cpu_package", name: "CPU Package", kind: "temperature" as const, value: 60, unit: "°C" },
-    { id: "cpu_total_load", name: "CPU Total", kind: "load" as const, value: 12, unit: "%" },
-    { id: "gpu_package_power", name: "GPU Package", kind: "power" as const, value: 200, unit: "W" },
+    { id: "cpu_load_total", name: "CPU Load", kind: "load" as const, value: 12, unit: "%" },
+    { id: "gpu_power", name: "GPU Power", kind: "power" as const, value: 200, unit: "W" },
   ];
   const msgs = discoveryMessages("gaming-pc", "Gaming PC", sensors, { publishIntervalMs: 2000 });
 
   it("topics and ids", () => {
     expect(msgs.map((m) => m.topic)).toEqual([
       "homeassistant/sensor/homepanel_gaming-pc/cpu_package/config",
-      "homeassistant/sensor/homepanel_gaming-pc/cpu_total_load/config",
-      "homeassistant/sensor/homepanel_gaming-pc/gpu_package_power/config",
+      "homeassistant/sensor/homepanel_gaming-pc/cpu_load_total/config",
+      "homeassistant/sensor/homepanel_gaming-pc/gpu_power/config",
     ]);
     expect(msgs[0]!.topic).toBe(topics.haDiscovery("gaming-pc", "cpu_package"));
   });
@@ -41,22 +41,17 @@ describe("HA discovery", () => {
     expect(JSON.parse(JSON.stringify(p))).toEqual(p);
   });
 
-  it("value_template picks by id with a safe fallback", () => {
+  it("value_template picks the sensor by id from the JSON array", () => {
     expect(valueTemplate("cpu_package")).toBe(
-      "{% set s = value_json.sensors | default([]) | selectattr('id', 'eq', 'cpu_package') | list %}" +
-        "{{ s[0].value if s | length > 0 else none }}",
+      "{% for s in value_json.sensors %}{% if s.id == 'cpu_package' %}{{ s.value }}{% endif %}{% endfor %}",
     );
-    expect(valueTemplate("x'); evil")).not.toContain("'); evil");
+    expect(msgs[0]!.payload.value_template).toBe(valueTemplate("cpu_package"));
+    expect(valueTemplate("x'); evil")).toContain("s.id == 'xevil'");
   });
 
-  it("template semantics (mini Jinja evaluation)", () => {
-    // Emulate what HA does: filter value_json.sensors by id; missing → None (unknown)
-    const evalTpl = (json: { sensors?: { id: string; value: number }[] }, id: string) => {
-      const s = (json.sensors ?? []).filter((x) => x.id === id);
-      return s.length > 0 ? s[0]!.value : null;
-    };
-    expect(evalTpl({ sensors: [{ id: "cpu_package", value: 61.2 }] }, "cpu_package")).toBe(61.2);
-    expect(evalTpl({ sensors: [] }, "cpu_package")).toBeNull();
-    expect(evalTpl({}, "cpu_package")).toBeNull();
+  it("fans get an icon, no device class", () => {
+    const [fan] = discoveryMessages("pc", "PC", [{ id: "fan2", name: "Fan #2", kind: "fan", value: 900, unit: "RPM" }], { publishIntervalMs: 2000 });
+    expect(fan!.payload).toMatchObject({ unit_of_measurement: "RPM", icon: "mdi:fan", state_class: "measurement" });
+    expect(fan!.payload).not.toHaveProperty("device_class");
   });
 });

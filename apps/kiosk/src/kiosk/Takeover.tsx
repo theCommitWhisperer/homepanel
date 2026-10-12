@@ -6,11 +6,13 @@ import { LiveImage, RefreshingImage } from "../widgets/camera";
 import { Icon } from "../icons";
 
 let audioCtx: AudioContext | null = null;
+/** Browsers only allow sound after the page has been touched; never try before that. */
+let hadGesture = false;
 /** Two-note doorbell chime generated with WebAudio (no asset needed). */
 export function chime() {
   try {
     const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
-    if (!AC) return;
+    if (!AC || !hadGesture) return;
     audioCtx = audioCtx || new AC();
     const ctx = audioCtx!;
     if (ctx.state === "suspended") void ctx.resume().catch(() => undefined);
@@ -36,6 +38,7 @@ export function chime() {
 /** Unlock audio on first touch so the chime can play later (iOS/Android autoplay rules). */
 export function primeAudio() {
   const unlock = () => {
+    hadGesture = true;
     try {
       const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (AC && !audioCtx) audioCtx = new AC();
@@ -82,7 +85,7 @@ export function Takeover({ t, onClose }: { t: T; onClose: () => void }) {
     <div className={"takeover kind-" + t.kind} role="alertdialog" aria-label={t.title}>
       <div className="to-media">
         {env.lite || !stream ? (
-          snap ? <RefreshingImage url={snap} everyMs={env.lite ? 10_000 : 2_000} token={env.token} alt={t.title} fit="contain" /> : <div className="to-noimg"><Icon name={t.kind === "doorbell" ? "bell" : "alert"} size={96} /></div>
+          snap ? <RefreshingImage url={snap} everyMs={2_000} token={env.token} alt={t.title} fit="contain" /> : <div className="to-noimg"><Icon name={t.kind === "doorbell" ? "bell" : "alert"} size={96} /></div>
         ) : (
           <LiveImage url={stream} token={env.token} alt={t.title} />
         )}

@@ -1,0 +1,84 @@
+# HomePanel on a Linux machine with Docker Engine 23+ (NOT Docker Desktop — Home Assistant does not
+# support it): Home Assistant Container + Mosquitto + HomePanel server.
+#
+#   `homepanel setup` (host type "Linux box with Docker") copies this file, mosquitto/ and a .env
+#   into a folder you choose and starts it. By hand:
+#     1. copy this file and the mosquitto/ folder into an empty folder
+#     2. create .env (variables below) and the MQTT password file:
+#          echo "homepanel:<mqtt-password>" > mosquitto/passwd
+#          docker run --rm -v "$PWD/mosquitto:/mosquitto/config" eclipse-mosquitto:2 \
+#            mosquitto_passwd -U /mosquitto/config/passwd
+#     3. docker compose up -d homeassistant mosquitto     → onboard HA at http://<this-machine>:8123
+#     4. HA → your profile → Security → Long-lived access tokens → create; put it in .env as HA_TOKEN
+#     5. docker compose up -d --build homepanel           → http://<this-machine>:8080
+#
+# .env variables:
+#   TZ              e.g. America/Denver
+#   HOMEPANEL_SRC   path to a HomePanel checkout (build context). Default ../.. = repo root when
+#                   this file is used in place from deploy/compose/.
+#   HA_TOKEN        long-lived Home Assistant token
+#   MQTT_USER / MQTT_PASS   the user in mosquitto/passwd (default user: homepanel)
+#   ADMIN_PASSWORD  password for http://<this-machine>:8080/admin
+#   AI_PROVIDER, AI_MODEL, AI_BASE_URL, AI_API_KEY   optional admin AI assistant
+
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host            # mDNS / device discovery; HA listens on :8123
+    privileged: true              # USB radios (ZBT-1) and Bluetooth
+    stop_grace_period: 60s        # give HA time to write its database on shutdown
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro    # Bluetooth via the host's BlueZ
+    # Home Assistant Connect ZBT-1 (Zigbee): `privileged: true` already exposes all USB devices.
+    # If you prefer to drop `privileged`, map just the stick instead. Find its stable path with
+    #   ls -l /dev/serial/by-id/
+    # and use it on both sides so ZHA's saved port keeps working after reboots/replugging:
+    # devices:
+    #   - /dev/serial/by-id/usb-Nabu_Casa_Home_Assistant_Connect_ZBT-1_XXXXXXXXXXXX-if00-port0:/dev/serial/by-id/usb-Nabu_Casa_Home_Assistant_Connect_ZBT-1_XXXXXXXXXXXX-if00-port0
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    environment:
+      TZ: ${TZ:-UTC}
+    volumes:
+      - ./mosquitto:/mosquitto/config        # mosquitto.conf + passwd (hashed)
+      - ./mosquitto-data:/mosquitto/data
+      - ./mosquitto-log:/mosquitto/log
+
+  homepanel:
+    build:
+      context: ${HOMEPANEL_SRC:-../..}
+      dockerfile: deploy/docker/Dockerfile
+    image: homepanel:local
+    container_name: homepanel
+    restart: unless-stopped
+    network_mode: host            # reaches HA and MQTT on 127.0.0.1; Wake-on-LAN broadcasts work; serves :8080
+    depends_on:
+      - homeassistant
+      - mosquitto
+    environment:
+      TZ: ${TZ:-UTC}
+      PORT: "8080"
+      DATA_DIR: /data
+      HA_URL: http://127.0.0.1:8123
+      HA_TOKEN: ${HA_TOKEN:-}
+      MQTT_URL: mqtt://127.0.0.1:1883
+      MQTT_USER: ${MQTT_USER:-homepanel}
+      MQTT_PASS: ${MQTT_PASS:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_BASE_URL: ${AI_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+    volumes:
+      - ./homepanel-data:/data

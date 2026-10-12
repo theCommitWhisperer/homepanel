@@ -1,4 +1,6 @@
 # Desk monitor next to the gaming PC (1920x1080-ish, landscape)
+# Widget config keys: see apps/kiosk/src/widgets. Some widgets carry two spellings of a key
+# (format/format24, interval/intervalSec) so they work with every kiosk build.
 id: desk-monitor
 name: Desk monitor
 grid: { cols: 12, rows: 8 }
@@ -11,6 +13,7 @@ widgets:
   - id: clock
     type: clock
     at: [0, 0, 4, 2]
+    format: 24h
     format24: true
     showDate: true
 
@@ -19,7 +22,7 @@ widgets:
     title: Gaming PC
     at: [4, 0, 5, 4]
     pc: gaming-pc
-    sensors: [cpu_package, gpu_core, gpu_hotspot, nvme0_temp, nvme1_temp, motherboard]
+    sensors: [cpu_package, cpu_core_max, gpu_core, gpu_hotspot, gpu_memory_junction, nvme0_temp, nvme1_temp]
     warnAt: 80
     critAt: 90
     style: gauges
@@ -32,13 +35,12 @@ widgets:
     openActions:
       "C:": open-drive-c
       "D:": open-drive-d
-      "E:": open-projects
 
   - id: lights
     type: lights
     title: Lights
     at: [0, 2, 4, 3]
-    entities: [light.living_room, light.kitchen, light.office]
+    entities: [light.living_room, light.kitchen, light.desk_lamp]
 
   - id: pc-buttons
     type: buttons
@@ -51,18 +53,18 @@ widgets:
     title: Shortcuts
     at: [0, 5, 4, 3]
     buttons:
-      - label: Desk fan
-        icon: "🌀"
-        action: { kind: ha, domain: switch, service: toggle, data: { entity_id: switch.desk_fan } }
+      - label: Desk lamp
+        icon: lamp
+        action: { kind: ha, domain: light, service: toggle, data: { entity_id: light.desk_lamp } }
       - label: Wake PC
-        icon: "⚡"
+        icon: power
         action: { kind: wol, pc: gaming-pc }
       - label: Studio
         icon: "🎮"
         action: { kind: agent, pc: gaming-pc, action: launch-studio }
-      - label: Mute mic
-        icon: "🎙️"
-        action: { kind: agent, pc: gaming-pc, action: mute-mic }
+      - label: Headphones
+        icon: "🎧"
+        action: { kind: agent, pc: gaming-pc, action: audio-headphones }
 
   - id: gif
     type: media

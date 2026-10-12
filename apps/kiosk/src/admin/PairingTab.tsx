@@ -39,7 +39,7 @@ function ApproveSheet({ p, profiles, onClose, onDone }: { p: PendingPairing; pro
   );
 }
 
-export function PairingTab() {
+export function PairingSection({ onPaired }: { onPaired?: () => void }) {
   const { data, error, reload } = useResource<PendingPairing[]>("/api/admin/pairings", 3000);
   const { data: profiles } = useResource<ProfileRow[]>("/api/admin/profiles");
   const [code, setCode] = useState("");
@@ -61,11 +61,9 @@ export function PairingTab() {
     }
   };
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1>Pair a screen</h1>
-        <p>Open HomePanel on the tablet or monitor. It shows a 6-digit code — enter it here.</p>
-      </div>
+    <section>
+      <h2 className="section first">Pair a new screen</h2>
+      <p className="hint lead">Open HomePanel on the tablet or monitor. It shows a 6-digit code: type it here, or tap Approve below.</p>
       <form className="code-entry" onSubmit={onCode}>
         <input className="code-input num" inputMode="numeric" maxLength={7} placeholder="000 000" value={code}
           onChange={(e) => {
@@ -76,7 +74,7 @@ export function PairingTab() {
           }} aria-label="Pairing code" />
         <button className="btn primary" disabled={code.length !== 6}>Find screen</button>
       </form>
-      <h2 className="section">Waiting to pair</h2>
+      <h3 className="subsection">Waiting to pair</h3>
       {error && <div className="form-err">{error}</div>}
       {!list.length ? (
         <div className="empty-state">No screens are waiting. Open HomePanel on a screen to see it here.</div>
@@ -94,7 +92,7 @@ export function PairingTab() {
           ))}
         </ul>
       )}
-      {sel && <ApproveSheet p={sel} profiles={profiles ?? []} onClose={() => setSel(null)} onDone={() => { setSel(null); setCode(""); void reload(); }} />}
-    </div>
+      {sel && <ApproveSheet p={sel} profiles={profiles ?? []} onClose={() => setSel(null)} onDone={() => { setSel(null); setCode(""); void reload(); onPaired?.(); }} />}
+    </section>
   );
 }

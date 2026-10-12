@@ -54,3 +54,23 @@ describe("profile REST + push", () => {
     expect(del.statusCode).toBe(409);
   });
 });
+
+describe("review fixes: profile delete path traversal", () => {
+  it("never deletes files outside the profiles folder", async () => {
+    const { plainApp } = await import("./helpers.js");
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const hp = await plainApp();
+    try {
+      const victim = path.join(hp.dir, "victim.yaml");
+      fs.writeFileSync(victim, "keep me");
+      expect(hp.profiles.delete("../victim")).toBe(false);
+      const s = (await hp.app.inject({ method: "POST", url: "/api/admin/login", payload: { password: "secret" } })).json().session;
+      const r = await hp.app.inject({ method: "DELETE", url: "/api/admin/profiles/..%2Fvictim", headers: { authorization: `Bearer ${s}` } });
+      expect(r.statusCode).toBe(404);
+      expect(fs.existsSync(victim)).toBe(true);
+    } finally {
+      await hp.app.close();
+    }
+  });
+});

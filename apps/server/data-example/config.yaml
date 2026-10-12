@@ -3,12 +3,14 @@
 
 # Doorbells: when `ring` fires, every screen (or those in on_ring.show_on) shows the camera full screen.
 # `ring` is a binary_sensor (rings when it turns "on") or an event.* entity (rings on every new event).
-doorbells: {}
-#  front:
-#    provider: reolink
-#    name: Front door
-#    ring: binary_sensor.front_door_visitor     # Reolink "Visitor" sensor
-#    camera: camera.front_door_fluent           # "fluent" = low-res stream, kinder to tablets
+# The `front` entry points at the DEMO entities; change them to your real ones
+# (e.g. Reolink: binary_sensor.<name>_visitor and camera.<name>_fluent — "fluent" = low-res, kinder to tablets).
+doorbells:
+  front:
+    provider: reolink
+    name: Front door
+    ring: binary_sensor.front_doorbell_ringing
+    camera: camera.front_door
 #  side:
 #    provider: eufy
 #    name: Side door

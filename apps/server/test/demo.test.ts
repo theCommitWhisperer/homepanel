@@ -13,7 +13,7 @@ describe("demo mode", () => {
     expect(login.statusCode).toBe(200);
     const ents = (await hp.app.inject({ url: "/api/admin/entities", headers: { authorization: `Bearer ${login.json().session}` } })).json();
     const ids = ents.map((e: any) => e.entity_id);
-    expect(ids).toEqual(expect.arrayContaining(["light.living_room", "light.kitchen", "light.office", "switch.desk_fan", "weather.home", "camera.front_door"]));
+    expect(ids).toEqual(expect.arrayContaining(["light.living_room", "light.kitchen", "light.desk_lamp", "sensor.outdoor_temperature", "binary_sensor.front_doorbell_ringing", "event.front_door_visitor", "camera.front_door"]));
     const snap = await hp.app.inject({ url: "/api/camera/camera.front_door/snapshot?t=demo" });
     expect(snap.statusCode).toBe(200);
     expect(snap.headers["content-type"]).toContain("image/svg+xml");
@@ -45,8 +45,11 @@ describe("demo mode", () => {
     const pkg = sensors.value.sensors.find((s: any) => s.id === "cpu_package");
     expect(pkg.value).toBeGreaterThan(40);
     expect(pkg.value).toBeLessThan(80);
+    const ids = sensors.value.sensors.map((s: any) => s.id);
+    expect(ids).toEqual(expect.arrayContaining(["cpu_core_max", "gpu_hotspot", "gpu_memory_junction", "nvme0_temp", "nvme1_temp", "cpu_load_total", "gpu_load_core"]));
+    expect(sensors.value.sensors.filter((s: any) => s.kind === "fan")).toHaveLength(3);
     const agents = await c.next((m) => m.type === "state" && m.key === "agents");
-    expect(agents.value.map((a: any) => a.pcId)).toEqual(["gaming-pc", "mini-pc"]);
+    expect(agents.value.map((a: any) => a.pcId)).toEqual(["gaming-pc"]);
 
     c.send({ type: "action", id: "a1", action: { kind: "ha", domain: "light", service: "turn_on", data: { entity_id: "light.kitchen", brightness: 100 } } });
     expect(await c.next((m) => m.type === "action_result" && m.id === "a1")).toMatchObject({ ok: true });
@@ -88,7 +91,7 @@ describe("demo mode", () => {
     const desk = await wsClient(hp.app);
     const fire = await wsClient(hp.app);
     desk.send({ type: "hello", deviceToken: "demo" });
-    fire.send({ type: "hello", deviceToken: "demo-fire" });
+    fire.send({ type: "hello", deviceToken: "fire" });
     await desk.next((m) => m.type === "welcome");
     await fire.next((m) => m.type === "welcome");
 
@@ -101,7 +104,7 @@ describe("demo mode", () => {
         camera: "camera.front_door",
         streamUrl: "/api/camera/camera.front_door/stream",
         snapshotUrl: "/api/camera/camera.front_door/snapshot",
-        closeAfterMs: 45_000,
+        closeAfterMs: 60_000,
       });
     }
     // the debounce on the takeover manager itself: a second ring within 10 s is ignored
@@ -114,7 +117,7 @@ describe("demo mode", () => {
     const hp = await demoApp();
     close = () => hp.app.close();
     const c = await wsClient(hp.app);
-    c.send({ type: "hello", deviceToken: "demo-fire" });
+    c.send({ type: "hello", deviceToken: "fire" });
     await c.next((m) => m.type === "welcome");
     const { session } = (await hp.app.inject({ method: "POST", url: "/api/admin/login", payload: { password: "demo" } })).json();
     const res = await hp.app.inject({
@@ -126,6 +129,23 @@ describe("demo mode", () => {
     expect(res.json()).toEqual({ ok: true });
     const p = await c.next((m) => m.type === "profile");
     expect(p.profile.name).toBe("Fire renamed");
+    c.ws.terminate();
+  });
+
+  it("demo device tokens ipad/fire map to their profiles; drives and actions are complete", async () => {
+    const hp = await demoApp();
+    close = () => hp.app.close();
+    const c = await wsClient(hp.app);
+    c.send({ type: "hello", deviceToken: "ipad" });
+    expect((await c.next((m) => m.type === "welcome")).profile.id).toBe("kitchen-ipad");
+    c.send({ type: "subscribe", keys: ["agent:gaming-pc:drives", "agent:gaming-pc:actions"] });
+    const drives = await c.next((m) => m.key === "agent:gaming-pc:drives");
+    expect(drives.value.drives.map((d: any) => d.letter)).toEqual(["C:", "D:", "E:"]);
+    const actions = (await c.next((m) => m.key === "agent:gaming-pc:actions")).value.actions;
+    const byId = Object.fromEntries(actions.map((a: any) => [a.id, a]));
+    expect(Object.keys(byId)).toHaveLength(19);
+    expect(byId.sleep.guard).toBe("confirm");
+    expect(byId.shutdown.guard).toBe("confirm+home-only");
     c.ws.terminate();
   });
 

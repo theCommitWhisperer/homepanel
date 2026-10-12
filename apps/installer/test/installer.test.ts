@@ -19,7 +19,9 @@ import { plainWizard, runStep } from "../src/wizard.js";
 import { startFakeHa, type FakeHa } from "./fake-ha.js";
 import { onboardStep, tokenStep } from "../src/steps/onboard.js";
 import { mqttStep } from "../src/steps/mqtt.js";
-import { doorbellStep } from "../src/steps/extras.js";
+import { doorbellStep, zigbeeStep } from "../src/steps/extras.js";
+import { loginWithPassword } from "../src/steps/onboard.js";
+import { envStep, healthStep, healthSummary } from "../src/steps/finish.js";
 
 let ha: FakeHa | undefined;
 let dir: string;
@@ -94,7 +96,7 @@ describe("HA onboarding client (fake HA over HTTP + WS)", () => {
     const eps = ha.state.supervisorCalls.map((c) => `${c.method} ${c.endpoint}`);
     expect(eps).toContain("post /store/addons/core_mosquitto/install");
     expect(eps).toContain("post /addons/core_mosquitto/start");
-    expect(ha.state.users.find((u) => u.username === "homepanel-mqtt")).toBeTruthy();
+    expect(ha.state.users.find((u) => u.username === "homepanel")).toBeTruthy();
     expect(ha.state.configEntries.map((e) => e.domain)).toContain("mqtt");
     // second run detects done without changing anything
     const before = ha.state.supervisorCalls.length;
@@ -263,5 +265,45 @@ describe("doctor", () => {
     checks = await runChecks(store);
     expect(checks.find((c) => c.name === "Home Assistant reachable")!.ok).toBe(false);
     expect(checks.find((c) => c.name === "HomePanel server")!.ok).toBe(false);
+  });
+});
+
+describe("already-onboarded HA, env file, ZHA and health", () => {
+  it("login flow → access token → long-lived token; health counts entities; zha/devices; .env written", async () => {
+    ha = await startFakeHa({ onboarded: true });
+    ha.state.users.push({ id: "u0", name: "Kevin", username: "kevin", password: "pw-123456", group_ids: ["system-admin"] });
+    const c = new HaClient(ha.url);
+    await expect(loginWithPassword(c, "kevin", "wrong")).rejects.toThrow(/Login failed/);
+    const access = await loginWithPassword(c, "kevin", "pw-123456");
+    expect(ha.state.clientIds.every((id) => id === `${ha!.url}/`)).toBe(true);
+    const llt = await new HaClient(ha.url, { token: access }).withWs((s) => s.createLongLivedToken());
+    expect(llt).toMatch(/^llt-/);
+
+    const store = new StateStore(dir);
+    store.update({ haUrl: ha.url, host: "127.0.0.1", mqtt: { host: "192.168.1.20", port: 1883, username: "homepanel" } });
+    store.setSecret("haToken", llt);
+    store.setSecret("mqttPassword", "mq-pass-xyz");
+    ha.state.configEntries.push({ entry_id: "e1", domain: "mqtt", title: "Mosquitto", state: "loaded" });
+    ha.state.configEntries.push({ entry_id: "e2", domain: "zha", title: "ZBT-1", state: "loaded" });
+    const out = memoryOut();
+    const envDir = join(dir, "server");
+    const ctx = makeContext({ store, out, prompt: scriptedPrompter(["file", envDir]), fetchImpl: fetch, repoRoot: dir, noWait: true });
+
+    const h = await healthSummary(ctx);
+    expect(h.ha).toMatchObject({ reachable: true, entities: 2, version: "2026.10.0" });
+    expect(h.mqtt.integration).toBe("loaded");
+    expect(h.zigbee).toEqual({ devices: 1 });
+    expect(await runStep(ctx, healthStep)).toBe("done");
+    expect(await zigbeeStep.detect(ctx)).toMatchObject({ done: true });
+
+    expect(await runStep(ctx, envStep)).toBe("done");
+    const env = readFileSync(join(envDir, ".env"), "utf8");
+    expect(env).toContain(`HA_URL=${ha.url}`);
+    expect(env).toContain(`HA_TOKEN=${llt}`);
+    expect(env).toContain("MQTT_URL=mqtt://192.168.1.20:1883");
+    expect(env).toContain("MQTT_USER=homepanel");
+    expect(env).toContain("MQTT_PASS=mq-pass-xyz");
+    expect(env).toMatch(/ADMIN_PASSWORD=.{16}/);
+    if (process.platform !== "win32") expect(statSync(join(envDir, ".env")).mode & 0o777).toBe(0o600);
   });
 });

@@ -4,17 +4,18 @@
  */
 import { readdirSync, statSync } from "node:fs";
 import { extname, isAbsolute, win32, posix } from "node:path";
-import type { ActionDef, MediaKey, SystemOp } from "../config.js";
+import type { ActionDef, SystemCommand } from "../config.js";
 import { powershell, type CommandSpec } from "../exec.js";
 import { expandEnv } from "../util.js";
-import { keyPressScript, MONITORS_OFF_PS, MUTE_MIC_PS } from "./windows.js";
+import { keyPressScript, parseKeyCombo, xdotoolCombo } from "./keys.js";
+import { MONITORS_OFF_PS } from "./windows.js";
 
 export interface PlanContext {
   platform: NodeJS.Platform;
   env: NodeJS.ProcessEnv;
   /** directory of agent.yaml; relative script paths resolve against it */
   configDir: string;
-  /** wildcard lookup for launch.find (injectable for tests) */
+  /** wildcard lookup for launch exe paths containing * (injectable for tests) */
   findNewest?: (pattern: string, platform: NodeJS.Platform) => string | undefined;
 }
 
@@ -104,78 +105,93 @@ function planUrl(url: string, ctx: PlanContext): Plan {
 /** cmd.exe metacharacters; with verbatim args they'd be interpreted, so refuse them. */
 const CMD_META = /[&|<>^%!"\r\n]/;
 
+/** "steam://open/main", "roblox-studio:", "ms-settings:sound" — but not "C:\\..." */
+const isProtocol = (s: string) => /^[a-z][a-z0-9+.-]+:/i.test(s) && !/^[a-z]:[\\/]/i.test(s);
+const isBareName = (s: string, platform: NodeJS.Platform) =>
+  platform === "win32" ? !/[\\/]/.test(s) : !s.includes("/");
+
 function planLaunch(a: Extract<ActionDef, { type: "launch" }>, ctx: PlanContext): Plan {
-  let exe: string;
-  if (a.find) {
-    const pattern = expandEnv(a.find, ctx.env, ctx.platform);
-    const found = (ctx.findNewest ?? findNewestMatch)(pattern, ctx.platform);
-    if (!found) throw new ActionError(`nothing matches ${pattern}`);
+  let exe = expandEnv(a.exe, ctx.env, ctx.platform);
+  if (/[*?]/.test(exe) && !isProtocol(exe)) {
+    const found = (ctx.findNewest ?? findNewestMatch)(exe, ctx.platform);
+    if (!found) throw new ActionError(`nothing matches ${exe}`);
     exe = found;
-  } else {
-    exe = expandEnv(a.exe!, ctx.env, ctx.platform);
   }
   const args = a.args.map((x) => expandEnv(x, ctx.env, ctx.platform));
-  if (ctx.platform === "win32") {
-    // `start` resolves names via PATH and the App Paths registry (steam.exe, discord...) and
-    // detaches properly. We quote ourselves and pass the line verbatim; values come only from
-    // agent.yaml and are rejected if they contain cmd metacharacters.
+  if (ctx.platform !== "win32") {
+    if (isProtocol(exe)) return single({ cmd: ctx.platform === "darwin" ? "open" : "xdg-open", args: [exe], detached: true }, `open ${exe}`);
+    return single({ cmd: exe, args, detached: true }, `launch ${exe}`);
+  }
+  if (isProtocol(exe) || isBareName(exe, ctx.platform)) {
+    // `start` resolves protocol handlers (steam://), PATH and the App Paths registry (discord,
+    // spotify...) and detaches. We quote ourselves and pass the line verbatim; values come only
+    // from agent.yaml and are refused if they contain cmd.exe metacharacters.
     for (const v of [exe, ...args]) {
       if (CMD_META.test(v)) throw new ActionError(`launch: refusing value with cmd.exe special characters: ${v}`);
     }
     const q = (s: string) => `"${s}"`;
     const line = ["/d", "/s", "/c", `"start "" ${[exe, ...args].map(q).join(" ")}"`];
-    return single({ cmd: "cmd.exe", args: line, detached: true, verbatim: true, hidden: true }, `launch ${exe}`);
+    return single({ cmd: "cmd.exe", args: line, detached: true, verbatim: true, hidden: true }, `start ${exe}`);
   }
-  return single({ cmd: exe, args, detached: true }, `launch ${exe}`);
+  // a full path: spawn it directly (no shell), detached, working dir = its folder
+  return single(
+    { cmd: exe, args, detached: true, hidden: false, cwd: win32.dirname(exe) },
+    `launch ${exe}`,
+  );
 }
 
-function planKeys(key: MediaKey, ctx: PlanContext): Plan {
-  if (ctx.platform === "win32") return single(powershell(keyPressScript(key)), `key ${key}`);
-  const pctl = (arg: string): CommandSpec => ({ cmd: "playerctl", args: [arg], timeoutMs: 5000 });
-  const pactl = (...args: string[]): CommandSpec => ({ cmd: "pactl", args, timeoutMs: 5000 });
-  const xdo = (k: string): CommandSpec => ({ cmd: "xdotool", args: ["key", k], timeoutMs: 5000 });
-  const map: Record<MediaKey, CommandSpec[]> = {
-    media_play_pause: [pctl("play-pause"), xdo("XF86AudioPlay")],
-    media_next: [pctl("next"), xdo("XF86AudioNext")],
-    media_prev: [pctl("previous"), xdo("XF86AudioPrev")],
-    volume_up: [pactl("set-sink-volume", "@DEFAULT_SINK@", "+5%")],
-    volume_down: [pactl("set-sink-volume", "@DEFAULT_SINK@", "-5%")],
-    volume_mute: [pactl("set-sink-mute", "@DEFAULT_SINK@", "toggle")],
-  };
-  return { steps: map[key], mode: "first-success", describe: `key ${key}` };
+function planKeys(combo: string, ctx: PlanContext): Plan {
+  const stroke = parseKeyCombo(combo);
+  const describe = `keys ${stroke.names.join("+")}`;
+  if (ctx.platform === "win32") return single(powershell(keyPressScript(stroke)), describe);
+  const t = { timeoutMs: 5000 };
+  const xdo: CommandSpec = { cmd: "xdotool", args: ["key", xdotoolCombo(stroke)], ...t };
+  if (stroke.names.length === 1) {
+    const pctl = (arg: string): CommandSpec => ({ cmd: "playerctl", args: [arg], ...t });
+    const pactl = (...args: string[]): CommandSpec => ({ cmd: "pactl", args, ...t });
+    const map: Record<string, CommandSpec[]> = {
+      media_play_pause: [pctl("play-pause"), xdo],
+      media_next: [pctl("next"), xdo],
+      media_prev: [pctl("previous"), xdo],
+      volume_up: [pactl("set-sink-volume", "@DEFAULT_SINK@", "+5%"), xdo],
+      volume_down: [pactl("set-sink-volume", "@DEFAULT_SINK@", "-5%"), xdo],
+      volume_mute: [pactl("set-sink-mute", "@DEFAULT_SINK@", "toggle"), xdo],
+    };
+    const steps = map[stroke.names[0]!];
+    if (steps) return { steps, mode: "first-success", describe };
+  }
+  return single(xdo, describe);
 }
 
-function planSystem(op: SystemOp, ctx: PlanContext): Plan {
+function planSystem(op: SystemCommand, ctx: PlanContext): Plan {
   if (ctx.platform === "win32") {
     const det = (cmd: string, args: string[]): CommandSpec => ({ cmd, args, detached: true });
     switch (op) {
       case "lock":
         return single(det("rundll32.exe", ["user32.dll,LockWorkStation"]), "lock");
       case "sleep":
-        // Note: if hibernation is enabled, SetSuspendState(0,...) hibernates; README explains `powercfg /h off`.
+        // If hibernation is enabled, SetSuspendState(0,...) hibernates; README explains `powercfg /h off`.
         return single(det("rundll32.exe", ["powrprof.dll,SetSuspendState", "0,1,0"]), "sleep");
       case "restart":
         return single({ cmd: "shutdown.exe", args: ["/r", "/t", "5"], timeoutMs: 10_000 }, "restart in 5 s");
       case "shutdown":
         return single({ cmd: "shutdown.exe", args: ["/s", "/t", "5"], timeoutMs: 10_000 }, "shut down in 5 s");
-      case "monitors_off":
+      case "monitors-off":
         return single(powershell(MONITORS_OFF_PS), "monitors off");
-      case "mute_mic":
-        return single(powershell(MUTE_MIC_PS, 20_000), "toggle microphone mute");
     }
   }
   if (ctx.platform === "darwin") {
-    const m: Partial<Record<SystemOp, CommandSpec>> = {
+    const m: Partial<Record<SystemCommand, CommandSpec>> = {
       lock: { cmd: "pmset", args: ["displaysleepnow"] },
       sleep: { cmd: "pmset", args: ["sleepnow"] },
-      monitors_off: { cmd: "pmset", args: ["displaysleepnow"] },
+      "monitors-off": { cmd: "pmset", args: ["displaysleepnow"] },
     };
     const spec = m[op];
     if (!spec) throw new ActionError(`${op} is not supported on macOS`);
     return single(spec, op);
   }
   const t = { timeoutMs: 10_000 };
-  const steps: Record<SystemOp, CommandSpec[]> = {
+  const steps: Record<SystemCommand, CommandSpec[]> = {
     lock: [
       { cmd: "loginctl", args: ["lock-session"], ...t },
       { cmd: "xdg-screensaver", args: ["lock"], ...t },
@@ -183,22 +199,20 @@ function planSystem(op: SystemOp, ctx: PlanContext): Plan {
     sleep: [{ cmd: "systemctl", args: ["suspend"], ...t }],
     restart: [{ cmd: "systemctl", args: ["reboot"], ...t }],
     shutdown: [{ cmd: "systemctl", args: ["poweroff"], ...t }],
-    monitors_off: [
+    "monitors-off": [
       { cmd: "xset", args: ["dpms", "force", "off"], ...t },
       { cmd: "busctl", args: ["--user", "call", "org.gnome.ScreenSaver", "/org/gnome/ScreenSaver", "org.gnome.ScreenSaver", "SetActive", "b", "true"], ...t },
     ],
-    mute_mic: [{ cmd: "pactl", args: ["set-source-mute", "@DEFAULT_SOURCE@", "toggle"], ...t }],
   };
   return { steps: steps[op], mode: "first-success", describe: op };
 }
 
 function planScript(a: Extract<ActionDef, { type: "script" }>, ctx: PlanContext): Plan {
   const pathMod = ctx.platform === "win32" ? win32 : posix;
-  let file = expandEnv(a.file, ctx.env, ctx.platform);
+  let file = expandEnv(a.script, ctx.env, ctx.platform);
   if (!pathMod.isAbsolute(file) && !isAbsolute(file)) file = pathMod.join(ctx.configDir, file);
   const ext = extname(file).toLowerCase();
   const shell =
-    a.shell ??
     (ext === ".ps1" ? "powershell" : ext === ".cmd" || ext === ".bat" ? "cmd" : ctx.platform === "win32" ? "powershell" : "sh");
   const timeoutMs = a.timeoutMs;
   let spec: CommandSpec;
@@ -232,13 +246,11 @@ export function planAction(def: ActionDef, ctx: PlanContext): Plan {
     case "launch":
       return planLaunch(def, ctx);
     case "keys":
-      return planKeys(def.key, ctx);
+      return planKeys(def.keys, ctx);
     case "system":
-      return planSystem(def.op, ctx);
+      return planSystem(def.command, ctx);
     case "script":
       return planScript(def, ctx);
-    case "echo":
-      return { steps: [], mode: "all", describe: "echo (mock only)" };
   }
 }
 

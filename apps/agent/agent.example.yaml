@@ -1,116 +1,86 @@
-# HomePanel PC agent configuration
+# HomePanel PC agent configuration  (check it with: homepanel-agent check-config)
 #
-# Windows: C:\ProgramData\HomePanel\agent.yaml   (the installer writes this for you)
-# Linux:   ~/.config/homepanel/agent.yaml
-# Check it with:  homepanel-agent check-config
+# Windows: C:\ProgramData\HomePanel\agent.yaml   Linux: ~/.config/homepanel/agent.yaml
 # Paths may use %VARS% on Windows (%USERPROFILE%, %LOCALAPPDATA%) and ~ / $VARS on Linux.
+# After editing, restart the agent:  Restart-ScheduledTask "HomePanel Agent"  (or log off and on).
 
-# Short id for this computer: lowercase letters, digits, dashes. Must match the id you entered in
-# the HomePanel admin page ("Computers" → "Add computer").
+# Short id: lowercase letters, digits, dashes. Must match the id in HomePanel admin → PCs.
 pcId: gaming-pc
-name: Gaming PC
+name: 'Gaming PC'
 
 mqtt:
-  url: mqtt://homepanel.local:1883    # the machine running Home Assistant / Mosquitto
-  username: homepanel
-  password: change-me
+  url: 'mqtt://homeassistant.local:1883'          # the Mosquitto broker (Home Assistant's Mosquitto app)
+  username: 'homepanel'
+  password: 'change-me'
 
-# Shared secret shown once by the admin page when you add this computer. Commands from the
-# dashboard are signed with it; anything with a wrong signature is ignored.
-key: paste-the-key-from-the-admin-page-here
+# HMAC key from HomePanel admin → PCs → Add. Commands with a wrong signature are ignored.
+key: 'paste-the-key-from-homepanel-admin'
 
-# Where sensors come from: auto = LibreHardwareMonitor on Windows, /sys/class/hwmon on Linux.
-sensorSource: auto
+# Hardware sensors come from LibreHardwareMonitor's Remote Web Server (Windows).
 lhmUrl: http://localhost:8085/data.json
-# lhmAuth: { username: admin, password: secret }   # only if you enabled auth in LHM's web server
+publishIntervalMs: 2000
 
-publishIntervalMs: 2000     # how often sensor values are sent (ms)
-drivesIntervalMs: 60000     # how often drive free space is sent (ms)
-
-# Which sensors to publish: "auto" (temps, loads, fans, power, clocks — no voltages or per-thread
-# loads) or a list of ids / wildcards. Run `homepanel-agent list-sensors` to see the ids.
+# "auto" = temperatures, loads, fans, power, clocks (no voltages / per-thread loads),
+# or a list of ids / wildcards. See the ids with:  homepanel-agent list-sensors
 sensors: auto
-# sensors: [cpu_package, cpu_total_load, gpu_*, nvme_*_temp, fan_*]
+# sensors: [cpu_package, cpu_load_total, 'gpu_*', 'nvme*_temp', 'fan*', ram_load]
 
-# Which sensors become Home Assistant entities (via MQTT discovery).
-# "default" = every temperature + cpu_total_load, gpu_core_load, ram_load. "none" disables it.
-ha_sensors: default
-# ha_sensors: [cpu_package, gpu_core, gpu_hotspot, cpu_total_load]
+# Home Assistant MQTT discovery: temperatures/loads/fans/power appear as HA entities.
+haDiscovery: true
 
 log:
   level: info
   # file: C:\ProgramData\HomePanel\agent.log
 
 # ---------------------------------------------------------------------------------------------
-# Buttons this PC offers to the dashboard. Only these can ever run — the dashboard just sends
-# the id. Fields:
-#   type:  open | launch | keys | script | url | system
-#   label: text on the button (defaults to the id)
-#   icon:  an emoji
-#   guard: confirm            → the screen asks "are you sure?"
-#          home-only          → refused from screens outside your home network
-#          confirm+home-only  → both
+# Buttons. Only these ids can ever run; the dashboard just sends the id.
+#   type:  open (path) | launch (exe, args) | keys (keys) | script (script, args) | url (url)
+#          | system (command: lock, sleep, restart, shutdown, monitors-off)
+#   label: button text      icon: emoji
+#   guard: confirm | home-only | confirm+home-only
+# Try one without the dashboard:  homepanel-agent test-action <id> --really
+# The drive widget uses open-drive-<letter> automatically, e.g. open-drive-e for E:.
 # ---------------------------------------------------------------------------------------------
 actions:
-  # --- folders -----------------------------------------------------------------------------
-  open-drive-c:      { type: open, path: 'C:\',                          label: "C: drive",  icon: "💽" }
-  open-drive-d:      { type: open, path: 'D:\',                          label: "D: drive",  icon: "💾" }
-  open-downloads:    { type: open, path: '%USERPROFILE%\Downloads',      label: Downloads,   icon: "📥" }
-  open-projects:     { type: open, path: 'D:\Projects',                  label: Projects,    icon: "🗂️" }
+  # --- folders ---------------------------------------------------------------------------------
+  open-drive-c:   { type: open, path: 'C:\', label: "C:", icon: "💽" }
+  open-drive-d:   { type: open, path: 'D:\', label: "D:", icon: "💾" }
+  open-downloads: { type: open, path: '%USERPROFILE%\Downloads', label: Downloads, icon: "📥" }
+  open-projects:  { type: open, path: 'D:\Projects', label: Projects, icon: "🗂️" }
 
-  # --- programs ----------------------------------------------------------------------------
-  # Roblox Studio lives in a versioned folder that changes with every update, so we search for
-  # the newest RobloxStudioBeta.exe each time the button is pressed.
-  launch-studio:
-    type: launch
-    find: '%LOCALAPPDATA%\Roblox\Versions\*\RobloxStudioBeta.exe'
-    label: Roblox Studio
-    icon: "🧱"
-  # Names on PATH / "App Paths" work as-is; otherwise give the full path.
-  launch-steam:
-    type: launch
-    exe: 'C:\Program Files (x86)\Steam\steam.exe'
-    label: Steam
-    icon: "🎮"
+  # --- programs --------------------------------------------------------------------------------
+  # Roblox Studio lives in a versioned folder that changes with each update. The roblox-studio:
+  # link (registered by the Roblox installer) always opens the current version. If it does not
+  # work on your PC, use the wildcard path instead - the newest match is started:
+  #   exe: '%LOCALAPPDATA%\Roblox\Versions\*\RobloxStudioBeta.exe'
+  launch-studio:  { type: launch, exe: 'roblox-studio:', label: Roblox Studio, icon: "🧱" }
+  launch-steam:   { type: launch, exe: 'steam://open/main', label: Steam, icon: "🎮" }
+  # Discord's own updater picks the current version:
   launch-discord:
     type: launch
-    find: '%LOCALAPPDATA%\Discord\app-*\Discord.exe'
+    exe: '%LOCALAPPDATA%\Discord\Update.exe'
+    args: ['--processStart', 'Discord.exe']
     label: Discord
     icon: "💬"
 
-  # --- media keys (work no matter which window has focus) ----------------------------------
-  play-pause:  { type: keys, key: media_play_pause, label: "Play / Pause", icon: "⏯️" }
-  next-track:  { type: keys, key: media_next,       label: Next,           icon: "⏭️" }
-  prev-track:  { type: keys, key: media_prev,       label: Previous,       icon: "⏮️" }
-  vol-up:      { type: keys, key: volume_up,        label: "Vol +",        icon: "🔊" }
-  vol-down:    { type: keys, key: volume_down,      label: "Vol −",        icon: "🔉" }
-  vol-mute:    { type: keys, key: volume_mute,      label: Mute,           icon: "🔇" }
+  # --- media (work whichever window has focus) ---------------------------------------------------
+  media-playpause: { type: keys, keys: media_play_pause, label: "Play / Pause", icon: "⏯️" }
+  media-next:      { type: keys, keys: media_next, label: Next, icon: "⏭️" }
+  vol-up:          { type: keys, keys: volume_up, label: "Vol +", icon: "🔊" }
+  vol-down:        { type: keys, keys: volume_down, label: "Vol −", icon: "🔉" }
 
-  # --- system ------------------------------------------------------------------------------
-  mute-mic:     { type: system, op: mute_mic,     label: "Mic mute",     icon: "🎙️" }
-  monitors-off: { type: system, op: monitors_off, label: "Screens off",  icon: "🖥️" }
-  lock:         { type: system, op: lock,         label: Lock,           icon: "🔒" }
-  sleep:        { type: system, op: sleep,        label: Sleep,          icon: "😴", guard: confirm }
-  restart:      { type: system, op: restart,      label: Restart,        icon: "🔄", guard: confirm+home-only }
-  shutdown:     { type: system, op: shutdown,     label: "Shut down",    icon: "⏻",  guard: confirm+home-only }
+  # --- audio -----------------------------------------------------------------------------------
+  # Toggles mute on the default microphone for every app (Windows Core Audio, no module needed).
+  # Prefer Discord's own mute? Set a keybind in Discord → Settings → Keybinds → Toggle Mute and use:
+  #   mute-mic: { type: keys, keys: ctrl+shift+m, label: "Mute mic", icon: "🎙️" }
+  mute-mic:         { type: script, script: 'scripts\mic-mute.ps1', label: "Mute mic", icon: "🎙️" }
+  # Need the AudioDeviceCmdlets module and your device names: see the comments in the scripts.
+  audio-speakers:   { type: script, script: 'scripts\audio-switch.ps1', args: ['-Name', 'Speakers'], label: Speakers, icon: "🔈" }
+  audio-headphones: { type: script, script: 'scripts\audio-switch.ps1', args: ['-Name', 'Headphones'], label: Headphones, icon: "🎧" }
 
-  # --- your own scripts ----------------------------------------------------------------------
-  # Relative paths are resolved next to this agent.yaml. The installer copies the examples to
-  # C:\ProgramData\HomePanel\scripts\. They need the AudioDeviceCmdlets module — see the script.
-  audio-speakers:
-    type: script
-    file: 'scripts\audio-speakers.ps1'
-    label: Speakers
-    icon: "🔈"
-  audio-headphones:
-    type: script
-    file: 'scripts\audio-headphones.ps1'
-    label: Headphones
-    icon: "🎧"
-
-  # --- web -----------------------------------------------------------------------------------
-  open-ha:
-    type: url
-    url: http://homeassistant.local:8123
-    label: Home Assistant
-    icon: "🏠"
+  # --- system ----------------------------------------------------------------------------------
+  monitors-off: { type: system, command: monitors-off, label: "Screens off", icon: "🖥️" }
+  lock:         { type: system, command: lock, label: Lock, icon: "🔒" }
+  sleep:        { type: system, command: sleep, label: Sleep, icon: "😴", guard: confirm }
+  restart:      { type: system, command: restart, label: Restart, icon: "🔄", guard: confirm+home-only }
+  shutdown:     { type: system, command: shutdown, label: "Shut down", icon: "⏻", guard: confirm+home-only }

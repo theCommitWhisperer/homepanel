@@ -12,32 +12,32 @@ export const HOST_TYPES: { value: HostType; name: string; description: string; d
     value: "x86-bare-metal",
     name: "Intel/AMD mini PC, bare metal (ACEMAGICIAN T8 Plus, NUC, …)",
     description: "Wipe the PC and install Home Assistant OS. Best option for a dedicated box.",
-    doc: "hardware/t8-plus-and-x86.md",
+    doc: "hosts.md#x86-mini-pc",
   },
   {
     value: "raspberry-pi",
     name: "Raspberry Pi 4 / 5",
     description: "Home Assistant OS on an SSD (recommended) or a good SD card.",
-    doc: "hardware/raspberry-pi.md",
+    doc: "hosts.md#raspberry-pi",
   },
-  { value: "ha-green", name: "Home Assistant Green", description: "Already runs HA OS. Plug in and go.", doc: "hardware/ha-green.md" },
+  { value: "ha-green", name: "Home Assistant Green", description: "Already runs HA OS. Plug in and go.", doc: "hosts.md#ha-green" },
   {
     value: "linux-docker",
     name: "Linux box with Docker (this computer)",
     description: "HA Container + Mosquitto + HomePanel with Docker Compose. No apps/add-ons.",
-    doc: "hardware/linux-docker.md",
+    doc: "hosts.md#linux-docker",
   },
   {
     value: "nas-proxmox",
     name: "NAS or Proxmox (virtual machine)",
     description: "Home Assistant OS in a VM on Proxmox, Synology, Unraid, TrueNAS.",
-    doc: "hardware/nas-proxmox.md",
+    doc: "hosts.md#nas-proxmox",
   },
   {
     value: "vm-windows",
     name: "Only a Windows PC (VirtualBox VM)",
     description: "Home Assistant OS in VirtualBox. Works, but HA is off whenever the PC is.",
-    doc: "hardware/vm-windows.md",
+    doc: "hosts.md#windows-virtualbox",
   },
 ];
 
@@ -47,25 +47,15 @@ export function hostDoc(t: HostType) {
 
 /** Topics for open_guide → docs file. */
 export const GUIDE_TOPICS: Record<string, string> = {
-  quickstart: "quickstart.md",
-  "t8-plus": "hardware/t8-plus-and-x86.md",
-  x86: "hardware/t8-plus-and-x86.md",
-  "raspberry-pi": "hardware/raspberry-pi.md",
-  "ha-green": "hardware/ha-green.md",
-  "vm-windows": "hardware/vm-windows.md",
-  "linux-docker": "hardware/linux-docker.md",
-  "nas-proxmox": "hardware/nas-proxmox.md",
-  ipad: "screens/ipad.md",
-  "fire-hd8": "screens/fire-hd8.md",
-  android: "screens/android.md",
-  "pi-screen": "screens/pi.md",
-  "windows-screen": "screens/windows.md",
+  "getting-started": "getting-started.md",
+  hosts: "hosts.md",
+  screens: "screens.md",
+  "pc-agent": "pc-agent.md",
   doorbells: "doorbells.md",
   zigbee: "zigbee-zbt1.md",
   "remote-access": "remote-access.md",
   "ai-assistant": "ai-assistant.md",
   widgets: "widgets.md",
-  "writing-a-widget": "writing-a-widget.md",
 };
 
 export function readGuide(repoRoot: string | undefined, topic: string, maxChars = 8000): string {
@@ -144,7 +134,7 @@ export const SCREEN_GUIDES: Record<string, { title: string; steps: (pairUrl: str
   ipad: {
     title: "iPad",
     steps: (u) => [
-      `Open Safari → ${u} → Share → Add to Home Screen. Open HomePanel from the home screen icon.`,
+      `Open Safari → ${u} → Share → Add to Home Screen. Open HomePanel from the home screen icon (fullscreen, no Safari bars).`,
       "A 6-digit code appears. Approve it in the HomePanel admin page (Devices → Pending) and pick a profile (e.g. kitchen-ipad).",
       "Settings → Accessibility → Guided Access → On (set a passcode). Open HomePanel, triple-click the side/home button → Start.",
       "Settings → Display & Brightness → Auto-Lock → Never. Keep it plugged in.",
@@ -153,12 +143,12 @@ export const SCREEN_GUIDES: Record<string, { title: string; steps: (pairUrl: str
   "fire-hd8": {
     title: "Fire HD 8 (10th gen)",
     steps: (u) => [
-      "Remove lock-screen ads: pay the one-time fee in your Amazon account (Content & Devices → Devices → Remove ads), or use Amazon Fire Toolbox on a PC (unofficial).",
-      "Install Fully Kiosk Browser: enable 'Apps from unknown sources' and install the APK from fully-kiosk.com (or via Fire Toolbox, which can also add Google Play).",
-      `Fully Kiosk → Settings → Web Content → Start URL: ${u}`,
-      "Fully → Device Management: Keep screen on; Screen brightness as you like. Kiosk Mode on (with PIN).",
-      "Optional (Fully PLUS licence): Remote Administration on — HomePanel can then wake the screen when the doorbell rings (add it under fully_kiosk in the server config).",
-      "Assign the 'fire-hd8' profile (lite: no animations, snapshots instead of video) when approving the pairing.",
+      "Remove lock-screen ads ('Special Offers'): either pay the one-time fee (amazon.com → Account → Content & Devices → Devices → your Fire → Remove ads), or use the unofficial Fire Toolbox on a Windows PC over ADB (enable Developer options by tapping Settings → Device Options → About Fire Tablet → Serial Number 7×, then USB debugging).",
+      "Sideload Fully Kiosk Browser: Settings → Security & Privacy → Apps from Unknown Sources → Silk (or Files) → allow, then download the APK from fully-kiosk.com and install it (Fire Toolbox can also install it over ADB).",
+      `Fully Kiosk → Settings → Web Content Settings → Start URL: ${u}  — a 6-digit code appears; approve it in the admin page with the 'fire-hd8' profile (lite). After pairing you may set the Start URL to ${u}/?token=<device token> so a reset app re-pairs itself.`,
+      "Fully → Device Management: Keep Screen On; Screensaver/dim as you like. Kiosk Mode: on (set a PIN) so the Fire home screen can't be reached.",
+      "Fully → Remote Administration (PLUS licence): on, set a password. Add it under fully_kiosk in the server config so HomePanel can wake the screen when the doorbell rings.",
+      "Fire OS: Settings → Display → Sleep → never isn't offered; Fully's Keep Screen On handles it. Keep it on the charger.",
     ],
   },
   android: {
@@ -172,7 +162,7 @@ export const SCREEN_GUIDES: Record<string, { title: string; steps: (pairUrl: str
     title: "Raspberry Pi + screen",
     steps: (u) => [
       "Install Raspberry Pi OS (with desktop). Copy deploy/pi-kiosk/ to the Pi.",
-      `Run: HOMEPANEL_URL=${u} bash deploy/pi-kiosk/install.sh  — it sets up Chromium in kiosk mode on boot.`,
+      `Run: HOMEPANEL_URL=${u} bash deploy/pi-kiosk/install.sh  — it starts \`chromium --kiosk ${u}\` on boot (no cursor, no screen blanking).`,
       "Approve the 6-digit code in HomePanel admin.",
     ],
   },

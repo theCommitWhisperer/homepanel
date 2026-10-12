@@ -5,39 +5,37 @@ declare const __AGENT_VERSION__: string | undefined;
 export const AGENT_VERSION: string =
   typeof __AGENT_VERSION__ === "string" ? __AGENT_VERSION__ : PROTOCOL_VERSION;
 
-/** "AMD Ryzen 7 7800X3D" -> "amd_ryzen_7_7800x3d" */
+/** "AMD Ryzen 7 7800X3D" -> "amd_ryzen_7_7800x3d"; "Fan #2" -> "fan2"; "CPU Core #1" -> "cpu_core1" */
 export function slugify(s: string): string {
   return s
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/#/g, "")
+    .replace(/\s*#\s*(\d)/g, "$1")
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
 }
 
 /**
- * Parse LibreHardwareMonitor-style numbers. Handles "1,234" (thousands), "45,0" (decimal comma,
- * German locale), "1.234,5" and "1,234.5".
+ * Parse LibreHardwareMonitor numbers. LHM formats with .NET "F" formats ("{0:F1} °C"), which
+ * never group thousands, in the *Windows display locale*: "45.0" (en-US) or "45,0" (de-DE).
+ * So a single comma or a single dot is the decimal separator. Grouped numbers from other tools
+ * are still handled: "1,234.5" / "1.234,5" (both present: the last one is decimal) and
+ * "1,234,567" / "1.234.567" (repeated separator = grouping).
  */
 export function parseLocaleNumber(raw: string): number {
-  let s = raw.trim().replace(/[\s  ]/g, "");
+  let s = raw.trim().replace(/[\s\u00a0\u202f']/g, "");
   const m = s.match(/^[-+]?[\d.,]+/);
   if (!m) return Number.NaN;
   s = m[0];
-  const lastComma = s.lastIndexOf(",");
-  const lastDot = s.lastIndexOf(".");
-  if (lastComma >= 0 && lastDot >= 0) {
-    // whichever comes last is the decimal separator
-    if (lastComma > lastDot) s = s.replace(/\./g, "").replace(",", ".");
+  const commas = s.split(",").length - 1;
+  const dots = s.split(".").length - 1;
+  if (commas && dots) {
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) s = s.replace(/\./g, "").replace(",", ".");
     else s = s.replace(/,/g, "");
-  } else if (lastComma >= 0) {
-    const commas = s.split(",").length - 1;
-    const after = s.length - lastComma - 1;
-    // "1,234" or "12,345,678" -> thousands; "45,0" / "45,25" -> decimal
-    if (commas > 1 || after === 3) s = s.replace(/,/g, "");
-    else s = s.replace(",", ".");
-  }
+  } else if (commas > 1) s = s.replace(/,/g, "");
+  else if (dots > 1) s = s.replace(/\./g, "");
+  else if (commas === 1) s = s.replace(",", ".");
   return Number(s);
 }
 

@@ -1,272 +1,208 @@
 # HomePanel PC agent
 
-A small background program for your PC. It:
+A small Node.js program that runs on a PC (Windows first; Linux works too) and:
 
-- sends **temperatures, loads, fan speeds and power** to your HomePanel dashboards (and to Home
-  Assistant as sensors),
-- sends **drive free space** every minute,
-- offers **buttons** that the dashboard can press: open a folder, start Steam or Roblox Studio,
-  play/pause, volume, mute your mic, screens off, lock, sleep, restart, your own scripts.
+- publishes **temperatures, loads, fans and power** from [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) (LHM), plus built-in CPU/RAM load, every 2 s
+- publishes **drive space** every 60 s
+- offers **buttons** (open a folder, launch Steam, media keys, lock, sleep…) that run only when the dashboard sends a correctly **signed** command for an id you listed
+- announces the sensors to **Home Assistant** (MQTT discovery), so they also appear as HA entities
 
-It only connects *out* to your MQTT broker (the Mosquitto that runs next to Home Assistant). It
-opens no ports, so there is nothing to allow in the firewall.
+Everything goes through the Mosquitto broker on the Home Assistant mini PC. The agent only makes
+outgoing connections, so no firewall ports need to be opened on the PC.
 
-Windows is the main target; Linux works too (sensors from `/sys/class/hwmon`).
+## Windows setup (Kevin's gaming PC)
 
----
+1. **Add the PC in HomePanel**: admin page → **PCs → Add**, id `gaming-pc`, name "Gaming PC"
+   (add the MAC address for Wake-on-LAN). Copy the **key** it shows.
+2. **Build the agent** on any machine with the repo: `pnpm install && pnpm --filter @homepanel/agent build`.
+   Copy the folder `apps/agent/dist/windows` to the PC (USB stick, network share…).
+3. On the PC, open **PowerShell as administrator** in that folder and run:
+   ```powershell
+   Set-ExecutionPolicy -Scope Process Bypass -Force
+   .\install.ps1 -Server 192.168.1.20 -MqttUser homepanel -MqttPass <mqtt password> -Key <key> -PcId gaming-pc
+   ```
+   (Leave the parameters out and it asks for them.) It installs Node.js 22 with winget if needed,
+   copies the agent to `C:\Program Files\HomePanel\agent`, writes `C:\ProgramData\HomePanel\agent.yaml`
+   with the suggested buttons, offers to install LibreHardwareMonitor, and registers the
+   **"HomePanel Agent"** scheduled task (at your logon, highest privileges, restarts on failure).
+4. **Set up LibreHardwareMonitor once** (the installer reminds you):
+   - start it and let it run as administrator; when it asks to install **PawnIO**, say **yes**
+     (that driver is how it reads CPU temperatures and fans);
+   - **Options → Remote Web Server → Run** (port 8085);
+   - **Options → Run On Windows Startup**.
+   Check by opening <http://localhost:8085> in a browser.
+5. Check it: `homepanel-agent list-sensors` (see the full command the installer prints) shows your
+   sensors; within seconds the PC is *online* in HomePanel admin, and in Home Assistant under
+   **Settings → Devices & services → MQTT → Gaming PC**.
 
-## Install on Windows
+Uninstall: `& "C:\Program Files\HomePanel\agent\uninstall.ps1"` (add `-RemoveConfig` to also delete
+`C:\ProgramData\HomePanel`).
 
-You need: the HomePanel server running, and the MQTT login it uses (the setup wizard printed it).
+Linux (e.g. the mini PC itself, if it runs a normal distro): `pnpm build`, then
+`sh apps/agent/linux/install-linux.sh` installs a systemd *user* service. Sensors come from
+`/sys/class/hwmon` and `/sys/class/thermal` (no LHM), and actions run with `xdg-open`, `playerctl`,
+`pactl`, `xdotool`, `loginctl` and `systemctl`.
 
-### 1. Add the computer in HomePanel
+## Commands
 
-Open the HomePanel admin page → **Computers** → **Add computer**. Pick an id such as
-`gaming-pc`. You'll get a **key**: a long random string. Keep the page open; you need the key in step 3.
-
-### 2. LibreHardwareMonitor (for temperatures)
-
-Windows doesn't let normal programs read CPU/GPU temperatures. LibreHardwareMonitor (free, open
-source) does, and shares them on a small local web page that the agent reads.
-
-The installer offers to install it for you (`winget install LibreHardwareMonitor.LibreHardwareMonitor`).
-Then, once:
-
-1. Start LibreHardwareMonitor **as administrator** (right-click → *Run as administrator*).
-   Without admin rights it shows almost no sensors.
-2. **Options → Run On Windows Startup**: tick it. It then starts elevated at every logon.
-3. **Options → Remote Web Server → Run**: tick it. Leave the port at **8085**.
-   Check it works by opening <http://localhost:8085> in a browser.
-4. Optional: *Start Minimized* and *Minimize To Tray*.
-
-> **About the driver and antivirus warnings.** To read sensors, LibreHardwareMonitor needs a kernel
-> driver. Old versions used *WinRing0*, which Windows Defender now flags as vulnerable. Current
-> versions use **PawnIO**, which is signed by Microsoft. If LHM offers to install PawnIO, say yes. If
-> Defender complains about WinRing0, update LibreHardwareMonitor.
-
-### 3. Run the installer
-
-Download the agent release zip and unzip it. Then open **PowerShell as administrator** in that folder:
-
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force
-.\install-windows.ps1
+```
+homepanel-agent run [--config f] [--mock] [--dry-run]   connect and publish (default command)
+homepanel-agent list-sensors [--all] [--json] [--mock]  table of sensor id, name, value
+homepanel-agent test-action <id> [--really]             show what a button runs; --really runs it
+homepanel-agent init [--pc-id … --key …] [--force]      write a default agent.yaml
+homepanel-agent check-config                            validate agent.yaml
+homepanel-agent config-path                             which agent.yaml is used
 ```
 
-It will:
+On Windows run them as `& "C:\Program Files\nodejs\node.exe" "C:\Program Files\HomePanel\agent\homepanel-agent.mjs" list-sensors`.
+From the repo: `pnpm --filter @homepanel/agent dev` runs `run --mock`.
 
-- use Node.js 22+ (it offers to install Node LTS with winget if you don't have it) and keep a
-  private copy of `node.exe` in `C:\Program Files\HomePanel\Agent`,
-- ask for the server address, MQTT login, PC id and the **key** from step 1, and write
-  `C:\ProgramData\HomePanel\agent.yaml`. Only you and administrators can read that file.
-- copy the example scripts to `C:\ProgramData\HomePanel\scripts\`,
-- create the scheduled task **HomePanel Agent**, which starts hidden at your logon and restarts
-  itself if it crashes, and then start it.
+`--mock` uses a bundled LHM capture (Ryzen 7 7800X3D + RTX 4080 SUPER) with drifting values, fake
+drives, and logs actions instead of running them, so the whole pipeline can be tried on any machine.
 
-Within a few seconds the PC shows up as **online** in the admin page.
+**Where agent.yaml is found:** `--config`, else `HOMEPANEL_AGENT_CONFIG`, else `agent.yaml` next to
+the program, else `%ProgramData%\HomePanel\agent.yaml` (Windows) / `~/.config/homepanel/agent.yaml`.
 
-#### Why a scheduled task and not a Windows service?
+## Config reference (`agent.yaml`)
 
-A Windows service runs in a separate, invisible session ("session 0"). If the agent ran there,
-**Open D:\Projects** would open an Explorer window that nobody can see, and **Launch Steam**
-would start Steam where you can't use it. Media keys and *lock* wouldn't reach you either. The
-scheduled task runs the agent **as you, in your desktop session**, so every button works as if you
-had clicked it yourself. The cost: the agent only runs while you're logged in. For a gaming PC,
-that's when you want the buttons anyway.
+| key | default | meaning |
+| --- | --- | --- |
+| `pcId` | required | lowercase id, must match HomePanel admin → PCs (e.g. `gaming-pc`) |
+| `name` | `pcId` | display name, also the Home Assistant device name |
+| `mqtt.url` | required | `mqtt://host:1883` (also `mqtts://`, `ws://`) |
+| `mqtt.username` / `mqtt.password` | – | broker login |
+| `key` | required | HMAC key from HomePanel admin; commands signed with anything else are ignored |
+| `lhmUrl` | `http://localhost:8085/data.json` | LibreHardwareMonitor web server |
+| `lhmAuth` | – | `{username, password}` if you enabled auth in LHM's web server |
+| `sensorSource` | `auto` | `auto` (LHM on Windows, hwmon on Linux), `lhm`, `hwmon`, `builtin` (CPU/RAM load only) |
+| `sensors` | `auto` | `auto` = temps, loads, fans, power, clocks, data (no voltages, per-thread loads, D3D, SMART counters), or a list of ids / wildcards: `[cpu_package, 'gpu_*', 'nvme*_temp']` |
+| `publishIntervalMs` | `2000` | sensor interval |
+| `drivesIntervalMs` | `60000` | drive space interval |
+| `haDiscovery` | `true` | publish Home Assistant MQTT discovery configs |
+| `haSensors` | `default` | which published sensors become HA entities: `default` = temperature/load/fan/power, or ids / wildcards |
+| `dryRun` | `false` on Windows, `true` elsewhere | log actions instead of running them |
+| `log.level` / `log.file` | `info` / – | logging |
+| `actions` | `{}` | the buttons, see below |
 
-By default the task runs with normal rights, so the programs it launches (games, Discord) are not
-elevated. If you really need elevated actions, rerun the installer with `-Elevated`.
-
-### Useful commands
-
-```powershell
-$agent = "C:\Program Files\HomePanel\Agent"
-& "$agent\node.exe" "$agent\agent.cjs" list-sensors          # every sensor id + current value
-& "$agent\node.exe" "$agent\agent.cjs" list-sensors --all    # incl. voltages, per-thread loads
-& "$agent\node.exe" "$agent\agent.cjs" test-action mute-mic  # try a button locally (asks y/N)
-& "$agent\node.exe" "$agent\agent.cjs" test-action lock --dry-run   # only show the command
-& "$agent\node.exe" "$agent\agent.cjs" check-config
-& "$agent\node.exe" "$agent\agent.cjs" print-config-path
-& "$agent\node.exe" "$agent\agent.cjs" --version
-Stop-ScheduledTask "HomePanel Agent"; Start-ScheduledTask "HomePanel Agent"   # restart after editing agent.yaml
-```
-
-Uninstall: `& "C:\Program Files\HomePanel\Agent\uninstall-windows.ps1"`. Add `-RemoveConfig` to
-also delete `C:\ProgramData\HomePanel`.
-
----
-
-## Install on Linux (Ubuntu, mini PCs, ...)
-
-```sh
-sh install-linux.sh            # copies agent.cjs, creates ~/.config/homepanel/agent.yaml, installs a systemd user unit
-nano ~/.config/homepanel/agent.yaml        # set pcId, mqtt, key; replace the Windows-only actions
-systemctl --user start homepanel-agent
-journalctl --user -u homepanel-agent -f
-sudo loginctl enable-linger $USER          # optional: keep running when nobody is logged in
-```
-
-Sensors come from `/sys/class/hwmon` (`k10temp`/`coretemp` for the CPU, `amdgpu`, `nvme`, Super
-I/O chips for fans) plus `/proc/stat` and `/proc/meminfo` for loads, so you don't need lm-sensors. NVIDIA
-GPUs with the proprietary driver don't appear in hwmon. Drives come from `df`.
-
-The Linux actions are best effort: `xdg-open`, `playerctl` (media keys, with `xdotool` as a fallback), `pactl`
-(volume, mic mute), `loginctl lock-session`, and `systemctl suspend|reboot|poweroff`.
-
----
-
-## Configuration: `agent.yaml`
-
-Where the agent looks, in order: `--config <file>`, the `HOMEPANEL_AGENT_CONFIG` environment
-variable, `agent.yaml` next to `agent.cjs`, and finally `C:\ProgramData\HomePanel\agent.yaml` (Windows) or
-`~/.config/homepanel/agent.yaml` (Linux). See [`agent.example.yaml`](agent.example.yaml) for a full example.
-
-| key | meaning |
-| --- | --- |
-| `pcId` | id from the admin page (`gaming-pc`) |
-| `name` | display name (also the Home Assistant device name) |
-| `mqtt.url` / `username` / `password` | your broker, e.g. `mqtt://192.168.1.20:1883` |
-| `key` | the key from **Add computer** |
-| `sensorSource` | `auto` (LHM on Windows, hwmon on Linux), `lhm`, `hwmon`, `mock` |
-| `lhmUrl` | default `http://localhost:8085/data.json` |
-| `publishIntervalMs` | sensor update rate, default 2000 |
-| `sensors` | `auto` or a list of ids/wildcards: `[cpu_package, "gpu_*", "nvme_*_temp"]` |
-| `ha_sensors` | `default` (all main temperatures + CPU/GPU/RAM load), `none`, or a list |
-| `actions` | your buttons (below) |
+Every value is validated on start; mistakes are reported with their path, e.g.
+`actions.vol-up.keys: unknown key "volume_upp"`.
 
 ### Sensor ids
 
-Ids are stable: they're built from the kind of hardware and the sensor name, not from LHM's
-internal numbering, so they survive reboots and LHM updates. Typical ids:
+Stable slugs, the same on every PC that has the part, and the same from LHM and Linux hwmon:
 
-`cpu_package`, `cpu_ccd1`, `cpu_core_1_clock`, `cpu_total_load`, `cpu_package_power`,
-`gpu_core`, `gpu_hotspot`, `gpu_memory_junction`, `gpu_core_load`, `gpu_fan_1`, `gpu_package_power`,
-`ram_load`, `nvme_samsung_ssd_990_pro_2tb_temp`, `mainboard_vrm_mos`, `fan_2` (motherboard fan header 2).
-An integrated GPU becomes `gpu2_*`, so `gpu_*` is always your graphics card.
+| id | what |
+| --- | --- |
+| `cpu_package`, `cpu_core_max`, `cpu_core_average`, `cpu_ccd1`, `cpu_core3` | CPU temperatures |
+| `cpu_load_total`, `cpu_load_core_max`, `cpu_power`, `cpu_clock_core1` | CPU load / power / clocks |
+| `gpu_core`, `gpu_hotspot`, `gpu_memory_junction` | GPU temperatures (VRAM temp is `gpu_memory_junction` on NVIDIA and AMD) |
+| `gpu_load_core`, `gpu_power`, `gpu_fan1`, `gpu_memory_used` | GPU load / power / fans / VRAM |
+| `gpu2_*`, `cpu2_*` | a second GPU (integrated graphics rank after discrete cards) / CPU |
+| `nvme0_temp`, `nvme1_temp`, `disk0_temp`, `nvme0_load_used_space` | drives, numbered like LHM |
+| `motherboard`, `mb_vrm_mos`, `mb_pch`, `fan1`…`fan7`, `fan_pump` | motherboard sensors and fan headers |
+| `ram_load`, `ram_used` | memory (also available without LHM) |
 
-Run `list-sensors` to see yours.
+`homepanel-agent list-sensors --all` shows everything your PC reports.
 
-### Buttons (`actions`)
+## Adding actions
 
-Only actions listed here can run. The dashboard sends just the action **id**, signed with the key.
-It can never send a command line, a path or arguments.
+Each entry under `actions:` is an id the dashboard can trigger. Nothing else can run.
 
 ```yaml
 actions:
-  open-projects:  { type: open, path: 'D:\Projects', label: Projects, icon: "🗂️" }
-  launch-steam:   { type: launch, exe: 'C:\Program Files (x86)\Steam\steam.exe', label: Steam, icon: "🎮" }
-  launch-studio:  { type: launch, find: '%LOCALAPPDATA%\Roblox\Versions\*\RobloxStudioBeta.exe', label: Roblox Studio }
-  play-pause:     { type: keys, key: media_play_pause }
-  mute-mic:       { type: system, op: mute_mic }
-  restart:        { type: system, op: restart, guard: confirm+home-only }
-  audio-headphones: { type: script, file: 'scripts\audio-headphones.ps1' }
-  open-ha:        { type: url, url: http://homeassistant.local:8123 }
+  open-drive-e:  { type: open, path: 'E:\', label: "E:", icon: "💾" }    # drive widget uses open-drive-<letter>
+  open-sovereign: { type: open, path: 'D:\Projects\Sovereign_V2' }
+  launch-obs:    { type: launch, exe: 'C:\Program Files\obs-studio\bin\64bit\obs64.exe' }
+  launch-spotify: { type: launch, exe: 'spotify:' }                         # protocol links work
+  launch-studio-direct:
+    type: launch
+    exe: '%LOCALAPPDATA%\Roblox\Versions\*\RobloxStudioBeta.exe'           # * = newest match
+  obs-record:    { type: keys, keys: ctrl+shift+f9 }
+  media-prev:    { type: keys, keys: media_prev }
+  backup:        { type: script, script: 'scripts\backup.ps1', args: ['-Quick'], timeoutMs: 120000 }
+  router:        { type: url, url: 'http://192.168.1.1' }
+  sleep:         { type: system, command: sleep, guard: confirm }
 ```
 
-| type | fields | Windows | Linux |
-| --- | --- | --- | --- |
-| `open` | `path` | `explorer.exe <path>` | `xdg-open` |
-| `launch` | `exe` **or** `find`, `args` | `cmd /c start "" "<exe>"`, so names on PATH or in *App Paths* work | runs `exe` directly |
-| `keys` | `key`: `media_play_pause`, `media_next`, `media_prev`, `volume_up`, `volume_down`, `volume_mute` | virtual media key | `playerctl` / `pactl` |
-| `system` | `op`: `lock`, `sleep`, `restart`, `shutdown`, `monitors_off`, `mute_mic` | built in, no extra software | `loginctl` / `systemctl` / `xset` / `pactl` |
-| `script` | `file`, `shell` (`powershell`/`cmd`/`sh`), `args`, `timeoutMs` (default 30 s) | your script | your script |
-| `url` | `url` (http/https, `steam:`, `discord:`, `spotify:`, `ms-settings:`) | default browser/app | `xdg-open` |
+| type | fields | Windows does |
+| --- | --- | --- |
+| `open` | `path` | `explorer.exe <path>` |
+| `launch` | `exe`, `args` | full path → started directly; a name on PATH or a protocol link (`steam://…`, `roblox-studio:`) → `cmd /c start "" "<exe>"`; `*` in a path → newest match |
+| `url` | `url` | opens in the default browser/handler (`file:` and `javascript:` refused) |
+| `keys` | `keys` | `media_play_pause`, `media_next`, `media_prev`, `volume_up`, `volume_down`, `volume_mute`, or a combo like `ctrl+shift+m`, `win+alt+k`, `f13` |
+| `script` | `script`, `args`, `timeoutMs` | `.ps1` → `powershell -ExecutionPolicy Bypass -File <script>`; `.cmd/.bat` → cmd. Relative paths are next to agent.yaml |
+| `system` | `command` | `lock`, `sleep`, `restart` (5 s), `shutdown` (5 s), `monitors-off` |
 
-Common fields: `label`, `icon` (an emoji), and `guard`:
+All types accept `label`, `icon` (emoji) and `guard`: `confirm` (the screen asks first),
+`home-only` (refused from screens outside your network), `confirm+home-only`. `sleep` defaults to
+`confirm`; `restart` and `shutdown` default to `confirm+home-only`.
 
-- `confirm`: the screen asks "are you sure?" first.
-- `home-only`: refused when the dashboard is used from outside your home network.
-- `confirm+home-only`: both. `restart` and `shutdown` default to this, and `sleep` defaults to `confirm`.
+Try an action without the dashboard: `homepanel-agent test-action <id>` (shows the command),
+then `--really`. After editing agent.yaml, restart the agent:
+`Stop-ScheduledTask 'HomePanel Agent'; Start-ScheduledTask 'HomePanel Agent'`.
 
-`launch.find` takes a wildcard path and starts the **newest** match. Use it for apps that install
-into versioned folders, like Roblox Studio (`Versions\version-…\`) and Discord (`app-1.0.9…\`).
+**Audio:** `scripts\mic-mute.ps1` toggles the default microphone with Windows Core Audio (no
+install needed). `scripts\audio-switch.ps1 -Name Speakers` switches the playback device and needs
+the **AudioDeviceCmdlets** module once, in an admin PowerShell:
+`Install-Module AudioDeviceCmdlets -Scope AllUsers -Force`. List your device names with
+`Get-AudioDevice -List`, then put them in the `audio-speakers` / `audio-headphones` args.
 
-`%VARIABLES%` (Windows) and `~` / `$VARS` (Linux) are expanded in paths. Relative script paths are
-resolved next to `agent.yaml`.
+**Roblox Studio:** `launch-studio` uses the `roblox-studio:` link the Roblox installer registers,
+which always opens the current version. If it does not work, use the wildcard path shown above.
 
-**Audio output switching** (`audio-speakers` / `audio-headphones`) uses the free
-*AudioDeviceCmdlets* PowerShell module. Install it once in an admin PowerShell:
+## Security
 
-```powershell
-Install-Module -Name AudioDeviceCmdlets -Scope AllUsers -Force
-Get-AudioDevice -List | Where-Object Type -eq 'Playback' | Format-Table Index, Name
-```
+- Commands are `{id, action, ts, sig}` with `sig = HMAC-SHA256(key, "id.action.ts")` in hex. The agent
+  checks it in constant time, rejects timestamps more than 10 s away from its clock, and remembers
+  recent ids to reject replays. Rejections are answered on `cmd_result` with the reason.
+- `action` is only ever a lookup key into `actions:`. Unknown ids are answered `unknown-action`
+  and logged; nothing from MQTT reaches a shell. Launch/script values come only from agent.yaml,
+  and those containing cmd.exe metacharacters are refused.
+- agent.yaml holds the key and MQTT password; the installer restricts it to you, SYSTEM and Administrators.
 
-Then edit the `-Name` in `C:\ProgramData\HomePanel\scripts\audio-speakers.ps1` and
-`audio-headphones.ps1` to match part of your device names.
+## MQTT topics (pc = `pcId`)
 
-After editing `agent.yaml`, restart the agent. The dashboard picks up new buttons immediately.
-
----
-
-## Security model
-
-- **Allowlist only.** The agent runs only what is in `agent.yaml` on this PC. A message over MQTT
-  contains an action id, never a command, path or argument. Unknown ids are logged and refused.
-- **Signed commands.** Each command carries an HMAC-SHA256 signature made with the per-PC key
-  (`id.action.ts`). The agent checks it in constant time and refuses commands older or newer than
-  **10 seconds** (so keep the clocks synced; Windows does this by default). It also refuses any
-  command id it has already seen (the last 500 are remembered). Someone who can publish on your MQTT
-  broker still can't press your buttons without the key.
-- **No shell.** Processes start with argument lists (`spawn`, no shell). Built-in PowerShell
-  snippets are fixed text passed with `-EncodedCommand`. Values for `launch` that contain cmd.exe
-  special characters (`& | < > ^ % ! "`) are refused.
-- **Your session, your rights.** The agent runs as you, not as SYSTEM, and not elevated by default.
-- **Secrets.** `agent.yaml` holds the key and MQTT password. The installer limits it to you,
-  Administrators and SYSTEM. If the key leaks, delete and re-add the PC in the admin page and put
-  the new key in `agent.yaml`.
-- `home-only` and `confirm` guards are enforced by the HomePanel server and screens. The agent
-  advertises them; it can't tell where a tap came from.
-
----
+| topic | retained | payload |
+| --- | --- | --- |
+| `homepanel/agent/<pc>/status` | yes | `online` / `offline` (offline is the last will) |
+| `homepanel/agent/<pc>/sensors` | no | `{ts, pc, hostname, sensors: [{id, name, kind, value, unit, hardware}]}` |
+| `homepanel/agent/<pc>/drives` | yes | `{ts, pc, drives: [{letter, label, totalGB, freeGB}]}` |
+| `homepanel/agent/<pc>/actions` | yes | `{pc, actions: [{id, label, type, icon, guard}]}` |
+| `homepanel/agent/<pc>/cmd` | – | command from the server |
+| `homepanel/agent/<pc>/cmd_result` | no | `{id, ok, error?}` |
+| `homeassistant/sensor/homepanel_<pc>/<id>/config` | yes | HA discovery (one per sensor) |
 
 ## Troubleshooting
 
-**The PC shows offline.**
-Check `C:\ProgramData\HomePanel\agent.log`. `Not authorized` means the MQTT username or password is
-wrong. `ECONNREFUSED` / `ETIMEDOUT` means a wrong server address, or Mosquitto isn't reachable
-from this PC (port 1883 on the *server* must be open). Is the task running? Run
-`Get-ScheduledTask "HomePanel Agent"`.
-
-**No temperatures / "sensor read failed".**
-- Open <http://localhost:8085/data.json>. If nothing loads, LibreHardwareMonitor isn't running or
-  *Remote Web Server → Run* is off.
-- If the page loads but there are no CPU temperatures, LHM isn't running **as administrator** or its
-  driver didn't load. Enable *Run On Windows Startup* (which starts it elevated) and accept the
-  PawnIO driver.
-- If you changed LHM's port or turned on its web server password, set `lhmUrl` / `lhmAuth`.
-
-**A sensor shows 0 or is missing.** Run `list-sensors --all`. Some motherboard inputs aren't
-connected and read 0; those are hidden automatically.
-
-**A button does nothing.** Run `test-action <id>` in a normal (non-admin) PowerShell. It prints the
-exact command and any error. Commands are rejected as *stale* if the clocks of the server and the PC
-differ by more than 10 s.
-
-**Sleep hibernates instead.** Windows' `SetSuspendState` hibernates when hibernation is on. Run
-`powercfg /h off` in an admin prompt if you want real sleep.
-
-**Mic mute.** The mic mute button toggles the default recording device, plus the default
-*communications* device that Discord and Teams use. It shows the same state as the Windows sound settings.
-
-**Firewall.** Nothing to configure. The agent only makes an outgoing connection to MQTT and reads
-LibreHardwareMonitor on `localhost`.
-
-**Home Assistant entities.** They appear under *Settings → Devices → MQTT → <your PC name>* with ids
-like `sensor.gaming_pc_cpu_package`. They show *unavailable* when the PC is off.
-
----
+- **Only CPU load and memory show up, no temperatures.** The agent cannot reach LHM. Is
+  LibreHardwareMonitor running (tray icon)? Is **Options → Remote Web Server → Run** ticked? Open
+  <http://localhost:8085/data.json>. If you changed LHM's port, set `lhmUrl`. The agent log says
+  `Could not read http://localhost:8085/data.json`.
+- **LHM shows no CPU temperatures / fans.** It needs administrator rights and the **PawnIO** driver.
+  Reinstall/update LHM and accept the PawnIO prompt. If **Windows Defender** quarantines a
+  "WinRing0" driver, that is an old LHM version: update it (current versions use PawnIO, which is
+  signed). Some Memory Integrity (Core isolation) setups block older drivers too.
+- **The PC never shows online.** Check `mqtt.url`, username and password (`homepanel-agent run`
+  in a terminal prints `MQTT error: Not authorized` for a wrong login). Port 1883 must be reachable
+  from the PC: try `Test-NetConnection 192.168.1.20 -Port 1883`. If it fails, the block is on the
+  mini PC side (Mosquitto app not started, or a router/VLAN firewall), not on the gaming PC.
+- **Buttons answer "bad signature".** The `key` in agent.yaml does not match HomePanel admin.
+  **"stale command"**: the server's and PC's clocks differ by more than 10 s; turn on
+  *Settings → Time → Set time automatically* on the PC.
+- **Buttons answer "unknown-action".** The id is not in agent.yaml (or the agent was not restarted).
+- **Sleep hibernates instead.** With hibernation on, Windows' `SetSuspendState` hibernates. Run
+  `powercfg /h off` in an admin prompt if you want real sleep.
+- **A launched program opens as administrator.** The agent task runs with highest privileges, so
+  programs it starts directly are elevated too. Protocol links (`steam://`, `roblox-studio:`) and
+  names started via `start` usually hand off to an already-running, non-elevated process.
+- **Is it running?** `Get-ScheduledTask 'HomePanel Agent'` (State: Running). Run it by hand in a
+  terminal to see the log: stop the task, then `node homepanel-agent.mjs run`. Set `log.file` to
+  keep a log.
 
 ## Development
 
-```sh
-pnpm --filter @homepanel/agent test        # vitest: parsers, HMAC, config, discovery, action planning
-pnpm --filter @homepanel/agent typecheck
-pnpm --filter @homepanel/agent build       # tsc → dist/*.js
-pnpm --filter @homepanel/agent bundle      # esbuild → dist/agent.cjs + dist/release/
-pnpm --filter @homepanel/agent smoke       # aedes broker + bundled agent --mock, end to end
-pnpm --filter @homepanel/agent dev         # run from source with mock sensors (needs a broker + agent.yaml)
-```
-
-`--mock` uses wiggling fake sensors and drives. Real actions are only *logged*, never run. A hidden action
-type `echo` (only honoured with `--mock`) lets tests exercise the signed-command path end to end.
+`pnpm build` (esbuild → `dist/homepanel-agent.mjs`, one file with all dependencies, plus
+`dist/windows/`), `pnpm typecheck`, `pnpm test` (vitest: LHM parsing on two fixtures — Ryzen +
+NVIDIA with SensorIds, and Intel + Radeon from an older LHM in a German locale — slugs, signatures,
+config, actions with a dry-run executor, discovery, drives, and an end-to-end run against an
+in-process aedes broker). Fixtures live in `src/fixtures/`.

@@ -8,7 +8,8 @@
  *   SERVE_DIST=1 also serves ./dist like the real server would.
  *
  * Device token "demo" is pre-paired (profile desk-monitor); "ipad" → kitchen-ipad; "fire" → fire-hd8.
- * Admin password: demo.   POST /mock/ring triggers a doorbell takeover (also every RING_EVERY_S if set).
+ * Admin password: demo.   POST /mock/ring triggers a doorbell takeover (also every 60 s; RING_EVERY_S=0 turns that off).
+ * Wildcard keys: `ha:light.*` is answered with one `ha:<entity_id>` state message per light.
  * GET /mock/offline?pc=gaming-pc toggles the PC asleep/awake.
  */
 import http from "node:http";
@@ -27,24 +28,28 @@ const profiles = {
     id: "desk-monitor", name: "Desk monitor", grid: { cols: 12, rows: 8 }, theme: "dark", lite: false,
     idle: { after: "10m", show: "idle-gif" },
     widgets: [
-      { type: "clock", at: [0, 0, 4, 3], showDate: true },
-      { type: "pc-temps", at: [4, 0, 5, 4], pc: "gaming-pc", title: "Gaming PC" },
+      { type: "clock", at: [0, 0, 4, 3], format: "12h" },
+      { type: "pc-temps", at: [4, 0, 5, 4], pc: "gaming-pc", title: "Gaming PC", warnAt: 80, critAt: 90, style: "gauges" },
       { type: "entity", at: [9, 0, 3, 3], entity: "weather.home", label: "Outside" },
-      { type: "lights", at: [0, 3, 4, 3], entities: ["light.living_room", "light.desk_lamp", "light.hallway"] },
-      { type: "media", id: "idle-gif", at: [9, 3, 3, 3], src: "/media/gifs/aurora.svg", fit: "cover" },
+      { type: "lights", at: [0, 3, 4, 3], title: "Lights" },
+      { type: "media", id: "idle-gif", at: [9, 3, 3, 3], src: "media/gifs/aurora.svg", fit: "cover" },
       { type: "pc-drives", at: [0, 6, 6, 2], pc: "gaming-pc" },
       { type: "buttons", at: [6, 6, 6, 2], pc: "gaming-pc" },
       { type: "camera", at: [4, 4, 5, 2], entity: "camera.front_door", title: "Front door" },
     ],
   },
   "kitchen-ipad": {
-    id: "kitchen-ipad", name: "Kitchen iPad", grid: { cols: 6, rows: 8 }, theme: "dark", lite: false,
+    id: "kitchen-ipad", name: "Kitchen iPad", grid: { cols: 6, rows: 10 }, theme: "dark", lite: false,
     widgets: [
-      { type: "clock", at: [0, 0, 4, 2], showDate: true },
+      { type: "clock", at: [0, 0, 4, 2], format: "12h" },
       { type: "entity", at: [4, 0, 2, 2], entity: "weather.home", label: "Outside" },
       { type: "camera", at: [0, 2, 4, 4], entity: "camera.front_door", title: "Front door" },
       { type: "lights", at: [4, 2, 2, 4], entities: ["light.living_room", "light.desk_lamp", "light.hallway"] },
-      { type: "buttons", at: [0, 6, 6, 2], buttons: [
+      { type: "media", at: [0, 6, 2, 2], src: "folder:photos", fit: "cover", interval: "8s" },
+      { type: "text", at: [2, 6, 4, 1], text: "Bins go out Thursday night" },
+      { type: "entity", at: [2, 7, 2, 1], entity: "switch.kitchen_fan", label: "Kitchen fan" },
+      { type: "entity", at: [4, 7, 2, 1], entity: "sensor.office_temperature", label: "Office" },
+      { type: "buttons", id: "kitchen-buttons", at: [0, 8, 6, 2], buttons: [
         { label: "All lights off", icon: "bulb", action: { kind: "ha", domain: "light", service: "turn_off", data: { entity_id: "all" } } },
         { label: "Wake gaming PC", icon: "power", action: { kind: "wol", pc: "gaming-pc" } },
         { label: "Movie scene", icon: "play", action: { kind: "ha", domain: "scene", service: "turn_on", data: { entity_id: "scene.movie" } } },
@@ -55,9 +60,14 @@ const profiles = {
   "fire-hd8": {
     id: "fire-hd8", name: "Fire HD 8", grid: { cols: 4, rows: 6 }, theme: "dark", lite: true,
     widgets: [
-      { type: "clock", at: [0, 0, 4, 2], showDate: true, format24: false },
+      { type: "clock", at: [0, 0, 4, 2], format: "24h" },
       { type: "lights", at: [0, 2, 4, 2], entities: ["light.living_room", "light.desk_lamp", "light.hallway", "switch.kitchen_fan"] },
-      { type: "buttons", at: [0, 4, 4, 2], pc: "gaming-pc" },
+      { type: "buttons", at: [0, 4, 4, 2], buttons: [
+        { label: "All off", icon: "moon", action: { kind: "ha", domain: "light", service: "turn_off", data: { entity_id: "all" } } },
+        { label: "Lock PC", icon: "lock", action: { kind: "agent", pc: "gaming-pc", action: "lock" } },
+        { label: "PC sleep", icon: "sleep", action: { kind: "agent", pc: "gaming-pc", action: "sleep" }, confirm: true },
+        { label: "Wake PC", icon: "power", action: { kind: "wol", pc: "gaming-pc" } },
+      ] },
     ],
   },
 };
@@ -99,8 +109,8 @@ const sensorDefs = [
   ["gpu_hotspot", "GPU Hot Spot", "temperature", "°C", "NVIDIA GeForce RTX 4080"],
   ["nvme0_temp", "NVMe SSD", "temperature", "°C", "Samsung 990 Pro"],
   ["mobo", "Motherboard", "temperature", "°C", "ASUS B650"],
-  ["cpu_load", "CPU Load", "load", "%", "AMD Ryzen 7 7800X3D"],
-  ["gpu_load", "GPU Load", "load", "%", "NVIDIA GeForce RTX 4080"],
+  ["cpu_load_total", "CPU Load", "load", "%", "AMD Ryzen 7 7800X3D"],
+  ["gpu_load_core", "GPU Load", "load", "%", "NVIDIA GeForce RTX 4080"],
   ["cpu_fan", "CPU Fan", "fan", "RPM", "ASUS B650"],
 ];
 let t = 0;
@@ -110,8 +120,8 @@ function sensors() {
   const v = {};
   for (const k of Object.keys(base)) v[k] = +(base[k] + wav(k, 4, 6) + (Math.random() - 0.5) * 2.2).toFixed(1);
   v.gpu_hotspot = +(v.gpu_hotspot + 10 + 8 * Math.max(0, Math.sin(t / 25))).toFixed(1); // occasionally warm
-  v.cpu_load = +(35 + wav("l", 25, 5) + Math.random() * 8).toFixed(0);
-  v.gpu_load = +(60 + wav("g", 30, 8)).toFixed(0);
+  v.cpu_load_total = +(35 + wav("l", 25, 5) + Math.random() * 8).toFixed(0);
+  v.gpu_load_core = +(60 + wav("g", 30, 8)).toFixed(0);
   v.cpu_fan = Math.round(1100 + v.cpu_package * 8);
   return { ts: Date.now(), pc: "gaming-pc", hostname: "KEVIN-RIG", sensors: sensorDefs.map(([id, name, kind, unit, hardware]) => ({ id, name, kind, unit, hardware, value: v[id] })) };
 }
@@ -122,9 +132,9 @@ const drives = () => ({ ts: Date.now(), pc: "gaming-pc", drives: [
   { letter: "F:", label: "Backup", totalGB: 2000, freeGB: 62 },
 ] });
 const actions = { pc: "gaming-pc", actions: [
-  { id: "open-c", label: "Open C:", type: "open", icon: "folder" },
-  { id: "open-d", label: "Open Games", type: "open", icon: "folder" },
-  { id: "open-e", label: "Open Media", type: "open", icon: "folder" },
+  { id: "open-drive-c", label: "Open C:", type: "open", icon: "folder" },
+  { id: "open-drive-d", label: "Open Games", type: "open", icon: "folder" },
+  { id: "open-drive-e", label: "Open Media", type: "open", icon: "folder" },
   { id: "steam", label: "Launch Steam", type: "launch", icon: "play" },
   { id: "discord", label: "Discord", type: "launch" },
   { id: "mute", label: "Mute audio", type: "keys", icon: "keyboard" },
@@ -143,6 +153,8 @@ const ha = {
     { datetime: new Date(Date.now() + 2 * 864e5).toISOString(), temperature: 59, templow: 48, condition: "rainy" },
     { datetime: new Date(Date.now() + 3 * 864e5).toISOString(), temperature: 61, templow: 47, condition: "cloudy" },
   ] } },
+  "light.office": { state: "off", attributes: { friendly_name: "Office", supported_color_modes: ["brightness"] } },
+  "sensor.office_temperature": { state: "21.4", attributes: { friendly_name: "Office temperature", unit_of_measurement: "°C", device_class: "temperature" } },
   "camera.front_door": { state: "idle", attributes: { friendly_name: "Front door" } },
   "binary_sensor.front_door_visitor": { state: "off", attributes: { friendly_name: "Front door visitor" } },
 };
@@ -154,6 +166,7 @@ const agentsSummary = () => [{ pcId: "gaming-pc", name: "Gaming PC", status: pcO
 const clients = new Set(); // {ws, token, keys:Set}
 function valueFor(key) {
   if (key === "agents") return agentsSummary();
+  if (key.endsWith(".*")) return undefined; // wildcards are expanded by sendKey()
   if (key.startsWith("ha:")) return ha[key.slice(3)];
   const m = /^agent:([^:]+):(\w+)$/.exec(key);
   if (m && m[1] === "gaming-pc") {
@@ -165,8 +178,19 @@ function valueFor(key) {
   return undefined;
 }
 const send = (ws, msg) => ws.readyState === 1 && ws.send(JSON.stringify(msg));
+/** `ha:<domain>.*` = every entity of that domain, each sent under its own `ha:<entity_id>` key. */
+const wildcardMatch = (pattern, key) => pattern.endsWith(".*") && key.startsWith(pattern.slice(0, -1));
+const wants = (c, key) => c.keys.has(key) || [...c.keys].some((p) => wildcardMatch(p, key));
+function sendKey(ws, k) {
+  if (k.endsWith(".*")) {
+    for (const id of Object.keys(ha)) if (wildcardMatch(k, "ha:" + id)) send(ws, { type: "state", key: "ha:" + id, value: ha[id], ts: Date.now() });
+    return;
+  }
+  const v = valueFor(k);
+  if (v !== undefined) send(ws, { type: "state", key: k, value: v, ts: Date.now() });
+}
 function publish(key, value) {
-  for (const c of clients) if (c.keys.has(key)) send(c.ws, { type: "state", key, value, ts: Date.now() });
+  for (const c of clients) if (wants(c, key)) send(c.ws, { type: "state", key, value, ts: Date.now() });
 }
 
 function runAction(c, msg) {
@@ -192,7 +216,8 @@ function runAction(c, msg) {
     const info = actions.actions.find((x) => x.id === a.action);
     if (!info) return reply(false, "unknown action");
     if (!pcOnline) return reply(false, "offline");
-    if (info.guard?.includes("confirm") && !msg.confirmed) return reply(false, "confirm-required");
+    if (info.guard?.includes("home-only") && process.env.MOCK_REMOTE) return reply(false, "home-only");
+    if (info.guard?.includes("confirm") && !msg.confirmed) return reply(false, "needs-confirm");
     if (a.action === "sleep" || a.action === "shutdown") setTimeout(() => { pcOnline = false; broadcastPc(); }, 1500);
     return reply(true);
   }
@@ -207,7 +232,7 @@ function takeover() {
   const id = "ring-" + Date.now();
   const tk = { id, kind: "doorbell", title: "Someone's at the front door", camera: "camera.front_door",
     streamUrl: "/api/camera/camera.front_door/stream", snapshotUrl: "/api/camera/camera.front_door/snapshot",
-    message: "Front door · Reolink doorbell", closeAfterMs: 60000,
+    message: "Front door · Reolink doorbell", closeAfterMs: 60000, 
     actions: [{ label: "Turn on porch light", action: { kind: "ha", domain: "light", service: "turn_on", data: { entity_id: "light.hallway" } } }] };
   for (const c of clients) if (c.token) send(c.ws, { type: "takeover", takeover: tk });
   return id;
@@ -231,6 +256,10 @@ const svgSnapshot = () => {
 <rect x="0" y="0" width="1280" height="44" fill="#000" opacity=".45"/>
 <text x="20" y="30" font-family="monospace" font-size="22" fill="#fff">FRONT DOOR  ${new Date().toISOString().slice(0, 10)} ${ts}</text></svg>`;
 };
+const photoSvg = (name, hue) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue},45%,38%)"/><stop offset="1" stop-color="hsl(${hue + 40},40%,16%)"/></linearGradient></defs>
+<rect width="400" height="400" fill="url(#p)"/><circle cx="300" cy="110" r="46" fill="hsl(${hue + 20},80%,80%)" opacity=".8"/>
+<path d="M0 400 L0 280 L110 200 L190 260 L280 180 L400 270 L400 400Z" fill="hsl(${hue},30%,12%)" opacity=".85"/></svg>`;
 const auroraSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid slice">
 <defs><linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0a1a2a"/><stop offset="1" stop-color="#1a2f3a"/></linearGradient>
 <linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5cc8be" stop-opacity="0"/><stop offset=".5" stop-color="#5cc8be" stop-opacity=".8"/><stop offset="1" stop-color="#9b7bff" stop-opacity="0"/></linearGradient></defs>
@@ -285,8 +314,7 @@ const server = http.createServer(async (req, res) => {
     if ((r = m("GET", /^\/media\/(.+)$/))) {
       res.writeHead(200, { "Content-Type": "image/svg+xml" });
       if (r[1].includes("aurora")) return res.end(auroraSvg);
-      const hue = r[1].includes("one") ? 200 : 30;
-      return res.end(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="hsl(${hue},40%,30%)"/><text x="200" y="160" font-size="40" text-anchor="middle" fill="#fff" font-family="sans-serif">${r[1]}</text></svg>`);
+      return res.end(photoSvg(r[1], r[1].includes("one") ? 200 : 20));
     }
 
     /* mock helpers */
@@ -391,7 +419,7 @@ wss.on("connection", (ws) => {
     if (!c.token) return;
     if (msg.type === "subscribe") {
       c.keys = new Set(msg.keys || []);
-      for (const k of c.keys) { const v = valueFor(k); if (v !== undefined) send(ws, { type: "state", key: k, value: v, ts: Date.now() }); }
+      for (const k of c.keys) sendKey(ws, k);
     } else if (msg.type === "action") runAction(c, msg);
     else if (msg.type === "ping") send(ws, { type: "pong" });
   });
@@ -400,6 +428,8 @@ wss.on("connection", (ws) => {
 
 setInterval(() => { if (pcOnline) publish("agent:gaming-pc:sensors", sensors()); }, 2000);
 setInterval(() => publish("agent:gaming-pc:drives", drives()), 60000);
-if (process.env.RING_EVERY_S) setInterval(takeover, Number(process.env.RING_EVERY_S) * 1000);
+// a ring every 60 s (RING_EVERY_S=0 disables it — the screenshot script does that)
+const ringEvery = Number(process.env.RING_EVERY_S ?? 60);
+if (ringEvery > 0) setInterval(takeover, ringEvery * 1000);
 
 server.listen(PORT, () => console.log(`[mock] HomePanel mock server on http://localhost:${PORT}  (token "demo", admin password "demo")`));

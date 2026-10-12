@@ -6,7 +6,8 @@ import { withToken } from "../lib/url";
 import { Icon } from "../icons";
 import { friendly } from "./ha-util";
 
-const schema = z.object({ entity: z.string(), refreshSec: z.number().positive().default(10) });
+/** Snapshot refresh: 10 s (30 s on lite screens); refreshSec overrides the normal rate. */
+export const schema = z.object({ entity: z.string(), refreshSec: z.number().positive().default(10) });
 
 export const snapshotUrl = (entity: string) => `/api/camera/${encodeURIComponent(entity)}/snapshot`;
 export const streamUrl = (entity: string) => `/api/camera/${encodeURIComponent(entity)}/stream`;
@@ -47,7 +48,7 @@ function Camera({ config, title }: { config: z.infer<typeof schema>; title?: str
   const e = useKey<HaEntityState>("ha:" + config.entity);
   const [full, setFull] = useState(false);
   const name = title ?? friendly(e, config.entity);
-  const every = Math.max(env.lite ? 10 : 1, config.refreshSec) * 1000;
+  const every = Math.max(env.lite ? 30 : 1, config.refreshSec) * 1000;
   return (
     <>
       <button className="cam" onClick={() => !env.lite && setFull(true)} aria-label={"Open " + name + " live"}>

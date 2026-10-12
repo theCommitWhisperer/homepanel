@@ -57,6 +57,25 @@ also give limited live video.
 
 Set `provider: eufy` for the doorbell in HomePanel. If live video doesn't work, the takeover still shows snapshots.
 
+## Generic (any camera + any button)
+
+Anything that gives Home Assistant **a camera entity** and **something that changes when the bell rings** works:
+another brand's integration, a Zigbee button next to the door, an ONVIF camera with a motion sensor, a
+`input_boolean` an automation flips, and so on.
+
+```yaml
+doorbells:
+  side-gate:
+    provider: generic
+    name: Side gate
+    ring: binary_sensor.gate_button_action        # or event.gate_button, or input_boolean.gate_rang
+    camera: camera.side_gate                       # generic camera / ONVIF / RTSP-to-camera in HA
+    snapshot: image.side_gate_snapshot             # optional image.* entity
+```
+
+Tip: for a camera that only has RTSP, add HA's **Generic Camera** integration with the RTSP URL. For a ring that
+HA only sees as an *event* entity, use the `event.*` entity directly; each new event is a ring.
+
 ## Testing
 
 Press the doorbell button. Or, in HA → Developer tools → States, set the ring binary sensor to `on` for a moment.

@@ -1,19 +1,55 @@
-#!/usr/bin/env node
+/**
+ * homepanel-agent — command line.
+ *
+ *   homepanel-agent run [--config f] [--mock] [--dry-run] [--supervise]
+ *   homepanel-agent list-sensors [--all] [--json] [--mock]
+ *   homepanel-agent test-action <id> [--really]
+ *   homepanel-agent init [--pc-id x --name x --mqtt-url x --mqtt-user x --mqtt-pass x --key x] [--force]
+ *   homepanel-agent check-config | config-path | version
+ */
 import { spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { hostname } from "node:os";
 import { dirname } from "node:path";
-import { createInterface } from "node:readline/promises";
-import { Command } from "commander";
 import { Agent } from "./agent.js";
 import { ActionDispatcher } from "./actions/dispatcher.js";
 import { planAction } from "./actions/plan.js";
-import { ConfigError, loadConfig, resolveConfigPath, type AgentConfig } from "./config.js";
-import { decodePowershell, NodeSpawner } from "./exec.js";
-import { createSensorSource, filterSensors, haSensorIds } from "./sensors/index.js";
-import type { InternalSensor } from "./sensors/types.js";
+import { ConfigError, loadConfig, parseConfig, resolveConfigPath, suggestedPcId, type AgentConfig } from "./config.js";
+import { defaultConfigYaml } from "./defaults.js";
+import { decodePowershell, describeCommand, NodeSpawner } from "./exec.js";
+import { createSensorSource, filterSensors, haSensors } from "./sensors/index.js";
 import { AGENT_VERSION, configureLogger, log } from "./util.js";
 
-function load(opts: { config?: string }): { cfg: AgentConfig; path: string } {
-  const path = resolveConfigPath(opts.config);
+import { parseArgs, sensorTable, str, type Parsed } from "./args.js";
+
+const HELP = `HomePanel PC agent ${AGENT_VERSION}
+
+Usage: homepanel-agent <command> [options]
+
+Commands:
+  run                 connect to MQTT and publish sensors, drives and actions (default)
+      --mock          fake hardware (LHM fixture with drift), fake drives, actions dry-run
+      --dry-run       log actions instead of running them
+      --supervise     restart the agent if it crashes (used by the Windows scheduled task)
+  list-sensors        print the sensors this PC reports (id, name, value)
+      --all           include hidden ones (voltages, per-thread loads...)   --json   JSON output
+      --mock          use the fixture instead of LibreHardwareMonitor
+  test-action <id>    show what an action from agent.yaml would run (dry run)
+      --really        actually run it
+  init                write a default agent.yaml with suggested buttons
+      --pc-id --name --mqtt-url --mqtt-user --mqtt-pass --key    pre-fill values
+      --force         overwrite an existing file
+  check-config        validate agent.yaml
+  config-path         print which agent.yaml would be used
+  version
+
+Common options:
+  -c, --config <file> agent.yaml to use. Default: next to the program, else
+                      %ProgramData%\\HomePanel\\agent.yaml (Windows) / ~/.config/homepanel/agent.yaml
+`;
+
+function loadOrExit(flags: Parsed["flags"]): { cfg: AgentConfig; path: string } {
+  const path = resolveConfigPath(str(flags.config));
   try {
     return { cfg: loadConfig(path), path };
   } catch (e) {
@@ -25,38 +61,35 @@ function load(opts: { config?: string }): { cfg: AgentConfig; path: string } {
   }
 }
 
-const program = new Command()
-  .name("homepanel-agent")
-  .description("HomePanel PC agent — publishes sensors, drives and buttons for this PC over MQTT")
-  .version(AGENT_VERSION, "-v, --version");
-
-program
-  .command("run", { isDefault: true })
-  .description("connect to MQTT and run until stopped")
-  .option("-c, --config <file>", "path to agent.yaml")
-  .option("--mock", "fake sensors/drives; actions are logged, not run (for testing without hardware)")
-  .option("--supervise", "restart the agent automatically if it crashes (used by the installers)")
-  .action(async (opts: { config?: string; mock?: boolean; supervise?: boolean }) => {
-    if (opts.supervise) return supervise();
-    const { cfg, path } = load(opts);
-    configureLogger({ level: cfg.log.level, file: cfg.log.file });
-    log.info(`config: ${path}`);
-    const agent = new Agent({ config: cfg, configPath: path, mock: !!opts.mock });
-    const shutdown = async (sig: string) => {
-      log.info(`${sig} received, going offline`);
-      await agent.stop();
-      process.exit(0);
-    };
-    process.on("SIGINT", () => void shutdown("SIGINT"));
-    process.on("SIGTERM", () => void shutdown("SIGTERM"));
-    process.on("SIGBREAK", () => void shutdown("SIGBREAK")); // Windows Ctrl+Break / task stop
-    process.on("unhandledRejection", (e) => log.error("unhandled rejection", e as Error));
-    process.on("uncaughtException", (e) => {
-      log.error(`fatal: ${e.stack ?? e.message}`);
-      process.exit(1);
-    });
-    void agent.start();
+/* ------------------------------------------------------------------ */
+/* commands                                                             */
+/* ------------------------------------------------------------------ */
+async function cmdRun(p: Parsed) {
+  if (p.flags.supervise) return supervise();
+  const { cfg, path } = loadOrExit(p.flags);
+  configureLogger({ level: cfg.log.level, file: cfg.log.file });
+  log.info(`config: ${path}`);
+  const agent = new Agent({
+    config: cfg,
+    configPath: path,
+    mock: !!p.flags.mock,
+    ...(p.flags["dry-run"] ? { dryRun: true } : {}),
   });
+  const shutdown = async (sig: string) => {
+    log.info(`${sig} received, going offline`);
+    await agent.stop();
+    process.exit(0);
+  };
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
+  process.on("SIGBREAK", () => void shutdown("SIGBREAK"));
+  process.on("unhandledRejection", (e) => log.error("unhandled rejection", e as Error));
+  process.on("uncaughtException", (e) => {
+    log.error(`fatal: ${e.stack ?? e.message}`);
+    process.exit(1);
+  });
+  void agent.start();
+}
 
 /** Parent process: re-run ourselves without --supervise, restart on crash with backoff. */
 function supervise() {
@@ -73,7 +106,7 @@ function supervise() {
         console.error("agent.yaml is invalid; not restarting. Fix it, then restart the agent.");
         return process.exit(2);
       }
-      if (Date.now() - startedAt > 60_000) delay = 2000; // it ran fine for a while: reset backoff
+      if (Date.now() - startedAt > 60_000) delay = 2000;
       console.error(`agent exited (${signal ?? code}); restarting in ${delay / 1000} s`);
       setTimeout(start, delay);
       delay = Math.min(delay * 2, 60_000);
@@ -91,123 +124,135 @@ function supervise() {
   start();
 }
 
-program
-  .command("list-sensors")
-  .description("print every sensor this PC reports, so you can choose ids for agent.yaml")
-  .option("-c, --config <file>", "path to agent.yaml")
-  .option("--mock", "use the mock sensor source")
-  .option("--all", "include sensors hidden by `sensors: auto` (voltages, per-thread loads...)")
-  .option("--json", "print JSON instead of a table")
-  .action(async (opts: { config?: string; mock?: boolean; all?: boolean; json?: boolean }) => {
-    let cfg: Pick<AgentConfig, "sensorSource" | "lhmUrl" | "lhmAuth" | "sensors" | "ha_sensors">;
-    try {
-      cfg = loadConfig(resolveConfigPath(opts.config));
-    } catch {
-      // works without a config too: list-sensors is the first thing people run
-      cfg = { sensorSource: "auto", lhmUrl: "http://localhost:8085/data.json", sensors: "auto", ha_sensors: "default" };
-    }
-    const source = createSensorSource(cfg, { mock: opts.mock });
-    let all: InternalSensor[];
-    try {
-      all = await source.read();
-      if (source.name === "Linux hwmon") {
-        await new Promise((r) => setTimeout(r, 500)); // second read for CPU load deltas
-        all = await source.read();
-      }
-    } catch (e) {
-      console.error(`Could not read sensors from ${source.name}: ${(e as Error).message}`);
-      if (source.hint) console.error(source.hint);
-      process.exit(1);
-    }
-    const published = new Set(filterSensors(all, cfg.sensors).map((s) => s.id));
-    const ha = new Set(haSensorIds(filterSensors(all, cfg.sensors), cfg.ha_sensors).map((s) => s.id));
-    const rows = opts.all ? all : all.filter((s) => published.has(s.id));
-    if (opts.json) {
-      console.log(JSON.stringify(rows, null, 2));
-      return;
-    }
-    const table = rows.map((s) => ({
-      id: s.id,
-      name: s.name,
-      value: `${s.value}`,
-      unit: s.unit,
-      flags: `${published.has(s.id) ? "P" : " "}${ha.has(s.id) ? "H" : " "}`,
-    }));
-    const w = (k: keyof (typeof table)[number]) => Math.max(k.length, ...table.map((r) => r[k].length));
-    const cols = ["flags", "id", "name", "value", "unit"] as const;
-    const widths = Object.fromEntries(cols.map((c) => [c, w(c)])) as Record<(typeof cols)[number], number>;
-    const line = (r: Record<string, string>) =>
-      cols.map((c) => (c === "value" ? r[c]!.padStart(widths[c]) : r[c]!.padEnd(widths[c]))).join("  ");
-    console.log(`Source: ${source.name}   (P = published, H = Home Assistant entity)\n`);
-    console.log(line({ flags: "PH", id: "id", name: "name", value: "value", unit: "unit" }));
-    console.log(cols.map((c) => "-".repeat(widths[c])).join("  "));
-    for (const r of table) console.log(line(r));
-    console.log(`\n${rows.length} sensor(s).${opts.all ? "" : " Use --all to include hidden ones."}`);
-  });
+async function cmdListSensors(p: Parsed) {
+  let cfg: Pick<AgentConfig, "lhmUrl" | "lhmAuth" | "sensorSource" | "sensors" | "haSensors" | "haDiscovery">;
+  try {
+    cfg = loadConfig(resolveConfigPath(str(p.flags.config)));
+  } catch {
+    // works without a config: list-sensors is the first thing people run
+    cfg = { lhmUrl: "http://localhost:8085/data.json", sensorSource: "auto", sensors: "auto", haSensors: "default", haDiscovery: true };
+  }
+  if (str(p.flags["lhm-url"])) cfg = { ...cfg, lhmUrl: str(p.flags["lhm-url"])! };
+  const source = createSensorSource(cfg, { mock: !!p.flags.mock });
+  await source.read(); // first read primes the CPU-load deltas
+  await new Promise((r) => setTimeout(r, 500));
+  const all = await source.read();
+  if (source.lastPrimaryError) {
+    console.error(`! ${source.lastPrimaryError.message}`);
+    console.error("  Showing built-in sensors only.\n");
+  }
+  const published = filterSensors(all, cfg.sensors);
+  const pub = new Set(published.map((s) => s.id));
+  const ha = new Set(cfg.haDiscovery ? haSensors(published, cfg.haSensors).map((s) => s.id) : []);
+  const rows = p.flags.all ? all : all.filter((s) => pub.has(s.id));
+  if (p.flags.json) {
+    console.log(JSON.stringify(rows, null, 2));
+    return;
+  }
+  console.log(`Source: ${source.name}   (P = published, H = Home Assistant entity)\n`);
+  console.log(sensorTable(rows, pub, ha));
+  console.log(`\n${rows.length} sensor(s).${p.flags.all ? "" : " Use --all to include hidden ones."}`);
+}
 
-program
-  .command("test-action <id>")
-  .description("run one action from agent.yaml right here (no MQTT), after asking y/N")
-  .option("-c, --config <file>", "path to agent.yaml")
-  .option("-y, --yes", "don't ask")
-  .option("--dry-run", "only print the command that would run")
-  .action(async (id: string, opts: { config?: string; yes?: boolean; dryRun?: boolean }) => {
-    const { cfg, path } = load(opts);
-    const def = cfg.actions[id];
-    if (!def) {
-      console.error(`No action "${id}" in ${path}. Known: ${Object.keys(cfg.actions).join(", ") || "(none)"}`);
-      process.exit(1);
+async function cmdTestAction(p: Parsed) {
+  const id = p.positional[0];
+  if (!id) {
+    console.error("usage: homepanel-agent test-action <id> [--really]");
+    process.exit(1);
+  }
+  const { cfg, path } = loadOrExit(p.flags);
+  const def = Object.prototype.hasOwnProperty.call(cfg.actions, id) ? cfg.actions[id] : undefined;
+  if (!def) {
+    console.error(`No action "${id}" in ${path}.\nKnown: ${Object.keys(cfg.actions).join(", ") || "(none)"}`);
+    process.exit(1);
+  }
+  const ctx = { platform: process.platform, env: process.env, configDir: dirname(path) };
+  try {
+    const plan = planAction(def, ctx);
+    console.log(`Action "${id}" (${def.type}): ${plan.describe}`);
+    for (const s of plan.steps) {
+      console.log(`  $ ${describeCommand(s)}`);
+      const ps = decodePowershell(s);
+      if (ps) console.log(ps.split("\n").map((l) => "      " + l).join("\n"));
     }
-    const ctx = { platform: process.platform, env: process.env, configDir: dirname(path) };
-    try {
-      const plan = planAction(def, ctx);
-      console.log(`Action "${id}" (${def.type}): ${plan.describe}`);
-      for (const s of plan.steps) {
-        const ps = decodePowershell(s);
-        console.log(`  $ ${s.cmd} ${ps ? "-EncodedCommand <inline script below>" : s.args.map((a) => JSON.stringify(a)).join(" ")}`);
-        if (ps) console.log(ps.split("\n").map((l) => "      " + l).join("\n"));
-      }
-    } catch (e) {
-      console.error(`Cannot run: ${(e as Error).message}`);
-      process.exit(1);
-    }
-    if (opts.dryRun) return;
-    if (!opts.yes) {
-      const rl = createInterface({ input: process.stdin, output: process.stdout });
-      const answer = (await rl.question("Run it now? [y/N] ")).trim().toLowerCase();
-      rl.close();
-      if (answer !== "y" && answer !== "yes") {
-        console.log("Cancelled.");
-        return;
-      }
-    }
-    const d = new ActionDispatcher(cfg.actions, new NodeSpawner(), ctx, {});
-    const r = await d.run(id);
-    if (r.ok) console.log(`OK${r.output ? `: ${r.output}` : ""}`);
-    else {
-      console.error(`FAILED: ${r.error}`);
-      process.exit(1);
-    }
-  });
+  } catch (e) {
+    console.error(`Cannot run: ${(e as Error).message}`);
+    process.exit(1);
+  }
+  if (!p.flags.really) {
+    console.log("\nDry run: nothing was started. Add --really to run it.");
+    return;
+  }
+  const d = new ActionDispatcher(cfg.actions, new NodeSpawner(), ctx);
+  const r = await d.run(id);
+  if (r.ok) console.log(`OK${r.output ? `: ${r.output}` : ""}`);
+  else {
+    console.error(`FAILED: ${r.error}`);
+    process.exit(1);
+  }
+}
 
-program
-  .command("print-config-path")
-  .description("show which agent.yaml would be used")
-  .option("-c, --config <file>", "path to agent.yaml")
-  .action((opts: { config?: string }) => {
-    console.log(resolveConfigPath(opts.config));
+function cmdInit(p: Parsed) {
+  const path = str(p.flags.config) ?? resolveConfigPath(undefined, { exists: () => false });
+  if (existsSync(path) && !p.flags.force) {
+    console.error(`${path} already exists. Use --force to overwrite it.`);
+    process.exit(1);
+  }
+  const key = str(p.flags.key) ?? (process.env.HOMEPANEL_INIT_KEY || undefined);
+  const yaml = defaultConfigYaml({
+    pcId: str(p.flags["pc-id"]) ?? suggestedPcId(),
+    name: str(p.flags.name) ?? (process.env.HOMEPANEL_INIT_NAME || hostname()),
+    mqttUrl: str(p.flags["mqtt-url"]) ?? "mqtt://homeassistant.local:1883",
+    mqttUser: str(p.flags["mqtt-user"]) ?? "homepanel",
+    // install.ps1 passes secrets via the environment (PowerShell 5.1 argument quoting is lossy)
+    mqttPass: str(p.flags["mqtt-pass"]) ?? process.env.HOMEPANEL_INIT_MQTT_PASS ?? "",
+    key: key ?? "paste-the-key-from-homepanel-admin",
   });
+  try {
+    parseConfig(yaml, "generated config");
+  } catch (e) {
+    console.error((e as Error).message);
+    process.exit(2);
+  }
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, yaml, { encoding: "utf8", mode: 0o600 });
+  console.log(`Wrote ${path}`);
+  if (!key) console.log("Next: paste the key from HomePanel admin → PCs into it, and check the mqtt section.");
+}
 
-program
-  .command("check-config")
-  .description("validate agent.yaml and print a summary")
-  .option("-c, --config <file>", "path to agent.yaml")
-  .action((opts: { config?: string }) => {
-    const { cfg, path } = load(opts);
-    console.log(`${path}: OK — pc "${cfg.pcId}" (${cfg.name}), broker ${cfg.mqtt.url}, ${Object.keys(cfg.actions).length} action(s)`);
-  });
+function cmdCheckConfig(p: Parsed) {
+  const { cfg, path } = loadOrExit(p.flags);
+  console.log(
+    `${path}: OK — pc "${cfg.pcId}" (${cfg.name}), broker ${cfg.mqtt.url}, ${Object.keys(cfg.actions).length} action(s)`,
+  );
+}
 
-program.parseAsync(process.argv).catch((e) => {
+export async function main(argv: string[]) {
+  const p = parseArgs(argv);
+  if (p.flags.help || p.flags.h || p.command === "help") return void console.log(HELP);
+  if (p.flags.version || p.flags.v || p.command === "version") return void console.log(AGENT_VERSION);
+  switch (p.command) {
+    case "run":
+      return cmdRun(p);
+    case "list-sensors":
+      return cmdListSensors(p);
+    case "test-action":
+      return cmdTestAction(p);
+    case "init":
+      return cmdInit(p);
+    case "check-config":
+      return cmdCheckConfig(p);
+    case "config-path":
+    case "print-config-path":
+      return void console.log(resolveConfigPath(str(p.flags.config)));
+    default:
+      console.error(`Unknown command "${p.command}".\n`);
+      console.log(HELP);
+      process.exit(1);
+  }
+}
+
+main(process.argv.slice(2)).catch((e) => {
   console.error(e instanceof Error ? e.message : e);
   process.exit(1);
 });

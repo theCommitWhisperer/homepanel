@@ -68,7 +68,10 @@ export function Pairing({ onPaired, reason }: { onPaired: (token: string) => voi
         <span className="gap" />
         {code.slice(3).split("").map((c, i) => <span key={i + 3}>{c}</span>)}
       </div>
-      <div className="pair-hint">Open the admin page on another device and enter this code.</div>
+      <div className="pair-hint">
+        Approve this screen in HomePanel admin
+        <span className="pair-url">{location.origin}/admin</span>
+      </div>
       {pair && (
         <>
           <div className="pair-bar"><div style={{ width: (left / total) * 100 + "%" }} /></div>

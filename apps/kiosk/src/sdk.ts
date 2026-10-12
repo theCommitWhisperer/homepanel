@@ -128,6 +128,16 @@ export function useKey<T = unknown>(key: DataKey | null | undefined): T | undefi
   return useSyncExternalStore(sub, get, get);
 }
 
+const NO_KEYS: DataKey[] = [];
+/** Concrete keys seen so far for a wildcard such as `ha:light.*` (re-renders when a new one arrives). */
+export function useKeysMatching(pattern: DataKey | null | undefined): DataKey[] {
+  const { connection } = useEnv();
+  const store = connection.store;
+  const sub = useCallback((l: () => void) => (pattern ? store.subscribePattern(pattern, l) : () => undefined), [store, pattern]);
+  const get = useCallback(() => (pattern ? store.keysMatching(pattern) : NO_KEYS), [store, pattern]);
+  return useSyncExternalStore(sub, get, get);
+}
+
 export function useLite() {
   return useEnv().lite;
 }

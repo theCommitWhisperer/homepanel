@@ -1,0 +1,36 @@
+# HomePanel PC agent — systemd *user* unit (Linux).
+#
+# Runs in your login session so "open" / "launch" / media-key buttons reach your desktop.
+#
+#   mkdir -p ~/.local/share/homepanel ~/.config/homepanel ~/.config/systemd/user
+#   cp homepanel-agent.mjs ~/.local/share/homepanel/
+#   cp agent.example.yaml ~/.config/homepanel/agent.yaml && chmod 600 ~/.config/homepanel/agent.yaml
+#   $EDITOR ~/.config/homepanel/agent.yaml
+#   cp homepanel-agent.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now homepanel-agent
+#   journalctl --user -u homepanel-agent -f
+#
+# Headless box (e.g. a mini PC with nobody logged in)? Keep user services running anyway:
+#   sudo loginctl enable-linger $USER
+#
+# Needs Node.js 22+ at /usr/bin/node (Ubuntu: https://github.com/nodesource/distributions,
+# or change ExecStart to the node from nvm / your distro).
+[Unit]
+Description=HomePanel PC agent
+Documentation=https://github.com/homepanel/homepanel/tree/main/apps/agent
+After=network-online.target graphical-session.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node %h/.local/share/homepanel/homepanel-agent.mjs run --config %h/.config/homepanel/agent.yaml
+Restart=on-failure
+RestartSec=5
+# exit code 2 = invalid agent.yaml; restarting won't help
+RestartPreventExitStatus=2
+# the agent only needs outbound network and to start your own programs
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

@@ -36,7 +36,7 @@ const P: Record<string, ReactNode> = {
   copy: <path d="M8 8h12v12H8zM4 16V4h12" />,
   trash: <path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13" />,
   pencil: <path d="M4 20h4L19 9l-4-4L4 16Zm9-13 4 4" />,
-  logo: <path d="M3.5 11 12 4l8.5 7v9h-17ZM8 14.5h8M8 17.5h5" />,
+  logo: <path d="M4 17a8 8 0 0 1 16 0M12 17l3.6-4.2" />,
   image: <path d="M3.5 5h17v14h-17zM3.5 16l5-5 4 4 3-3 5 5M15.5 8.5h.1" />,
 };
 

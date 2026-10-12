@@ -7,7 +7,7 @@ import { History } from "../lib/store";
 import { Icon } from "../icons";
 import { level, levelColor } from "./temps-util";
 
-const schema = z.object({
+export const schema = z.object({
   pc: z.string(),
   sensors: z.array(z.string()).optional(),
   warnAt: z.number().default(80),
@@ -17,6 +17,23 @@ const schema = z.object({
 
 // history survives profile reloads/re-mounts
 const histories = new Map<string, History>();
+// order fixed the first time a PC's sensor set is seen (hottest first) so gauges don't reshuffle every update
+const orders = new Map<string, string[]>();
+
+/** Temperature sensors to show: the configured ids in that order, else every temperature sensor, hottest first. */
+export function pickTemps(sensors: AgentSensor[], wanted: string[] | undefined, memoKey?: string): AgentSensor[] {
+  if (wanted && wanted.length) {
+    return sensors.filter((s) => wanted.indexOf(s.id) >= 0).sort((a, b) => wanted.indexOf(a.id) - wanted.indexOf(b.id));
+  }
+  const temps = sensors.filter((s) => s.kind === "temperature");
+  const sig = temps.map((s) => s.id).sort().join(",");
+  let order = memoKey ? orders.get(memoKey + "|" + sig) : undefined;
+  if (!order) {
+    order = temps.slice().sort((a, b) => b.value - a.value).map((s) => s.id);
+    if (memoKey) orders.set(memoKey + "|" + sig, order);
+  }
+  return temps.sort((a, b) => order!.indexOf(a.id) - order!.indexOf(b.id));
+}
 
 function Gauge({ s, warnAt, critAt, size }: { s: AgentSensor; warnAt: number; critAt: number; size: number }) {
   const max = Math.max(100, critAt + 10);
@@ -50,10 +67,7 @@ function PcTemps({ config, title }: { config: z.infer<typeof schema>; title?: st
   let hist = histories.get(config.pc);
   if (!hist) histories.set(config.pc, (hist = new History(10 * 60_000)));
 
-  const temps = (data?.sensors ?? []).filter((s) =>
-    config.sensors && config.sensors.length ? config.sensors.indexOf(s.id) >= 0 : s.kind === "temperature",
-  );
-  if (config.sensors && config.sensors.length) temps.sort((a, b) => config.sensors!.indexOf(a.id) - config.sensors!.indexOf(b.id));
+  const temps = pickTemps((data?.sensors ?? []).slice(), config.sensors, config.pc);
   const hottest = temps.reduce<AgentSensor | null>((m, s) => (!m || s.value > m.value ? s : m), null);
 
   const lastTs = useRef(0);
@@ -85,12 +99,12 @@ function PcTemps({ config, title }: { config: z.infer<typeof schema>; title?: st
       <div className="pc-head">
         <span className={"dot" + (offline ? "" : " on")} />
         <span className="pc-name">{name}</span>
-        <span className="pc-state">{offline ? "asleep" : "online"}</span>
+        <span className="pc-state">{offline ? "offline" : "online"}</span>
       </div>
       {offline ? (
         <div className="pc-offline">
           <Icon name="moon" size={Math.min(64, Math.max(32, h * 0.16))} />
-          <div className="pc-offline-title">PC asleep</div>
+          <div className="pc-offline-title">PC offline</div>
           {summary?.hasMac ? (
             <button className="btn primary" disabled={state === "pending"} onClick={() => run({ kind: "wol", pc: config.pc }, "Wake " + name)}>
               {state === "pending" ? <span className="spinner" /> : <Icon name="power" size={20} />} Wake
@@ -113,7 +127,7 @@ function PcTemps({ config, title }: { config: z.infer<typeof schema>; title?: st
                 {lv !== "ok" && <span className={"badge lv-" + lv}>{lv === "crit" ? "Too hot" : "Warm"}</span>}
               </div>
             </div>
-            {!compact && (
+            {!compact && !lite && (
               <div className="hot-spark" ref={sparkRef}>
                 <Sparkline points={hist.get("hot")} w={spark.w} h={Math.max(0, spark.h - 26)} color={levelColor[lv]} />
                 <div className="spark-cap">last 10 min</div>

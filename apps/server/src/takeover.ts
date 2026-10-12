@@ -1,6 +1,6 @@
 import type { FastifyBaseLogger } from "fastify";
 import type { HaEntityState, ServerConfigFile, Takeover } from "@homepanel/protocol";
-import { parseDuration, randomId } from "./util.js";
+import { parseDuration, randomId } from "./store.js";
 
 export const RING_DEBOUNCE_MS = 10_000;
 
@@ -59,7 +59,7 @@ export class TakeoverManager {
   /** Start the takeover for doorbell `name` (debounced). */
   ring(name: string): Takeover | undefined {
     const cfg = this.deps.getConfig();
-    const bell = cfg.doorbells[name];
+    const bell = Object.prototype.hasOwnProperty.call(cfg.doorbells, name) ? cfg.doorbells[name] : undefined;
     if (!bell) return undefined;
     const t = this.now();
     const last = this.lastRing.get(name);

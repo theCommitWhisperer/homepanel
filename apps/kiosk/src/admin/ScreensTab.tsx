@@ -5,6 +5,7 @@ import { ProfileRow, useResource } from "./hooks";
 import { toast } from "../lib/toast";
 import { ConfirmSheet } from "../components";
 import { Icon } from "../icons";
+import { PairingSection } from "./PairingTab";
 
 function ScreenRow({ d, profiles, onChange }: { d: DeviceInfo; profiles: ProfileRow[]; onChange: () => void }) {
   const [name, setName] = useState(d.name);
@@ -52,10 +53,12 @@ export function ScreensTab() {
     <div className="page">
       <div className="page-head">
         <h1>Screens</h1>
-        <p>Every paired tablet and monitor. Change a profile and the screen updates right away.</p>
+        <p>Pair new tablets and monitors, and choose what each one shows. Profile changes reach the screen right away.</p>
       </div>
+      <PairingSection onPaired={reload} />
+      <h2 className="section">Paired screens</h2>
       {error && <div className="form-err">{error}</div>}
-      {data && !data.length && <div className="empty-state">No screens yet. Pair one from the Pairing tab.</div>}
+      {data && !data.length && <div className="empty-state">No screens yet. Pair one above.</div>}
       <ul className="rows">
         {(data ?? []).map((d) => <ScreenRow key={d.id + d.name + d.profileId} d={d} profiles={profiles ?? []} onChange={reload} />)}
       </ul>

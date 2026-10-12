@@ -2,11 +2,25 @@ import type { DataKey } from "@homepanel/protocol";
 
 type Listener = () => void;
 
+/**
+ * Wildcard keys: `ha:<domain>.*` means "every entity of that domain". The server answers a wildcard
+ * subscription by sending each entity as its own `ha:<entity_id>` state message (it may also send the
+ * wildcard key itself with an array of HaEntityState, which the store expands).
+ */
+export const isWildcard = (key: DataKey) => key.endsWith(".*");
+export function matchesWildcard(pattern: DataKey, key: DataKey): boolean {
+  return isWildcard(pattern) && !isWildcard(key) && key.startsWith(pattern.slice(0, -1));
+}
+
+const EMPTY: DataKey[] = [];
+
 /** Latest value per data key. Listeners are per key so a widget only re-renders for its own keys. */
 export class DataStore {
   private values = new Map<DataKey, unknown>();
   private stamps = new Map<DataKey, number>();
   private listeners = new Map<DataKey, Set<Listener>>();
+  private patternListeners = new Map<DataKey, Set<Listener>>();
+  private patternCache = new Map<DataKey, DataKey[]>();
   private anyListeners = new Set<Listener>();
 
   get<T = unknown>(key: DataKey): T | undefined {
@@ -17,9 +31,32 @@ export class DataStore {
     return this.stamps.get(key);
   }
 
+  has(key: DataKey) {
+    return this.values.has(key);
+  }
+
   set(key: DataKey, value: unknown, ts = Date.now()) {
+    if (isWildcard(key)) {
+      // bulk form: { key: "ha:light.*", value: HaEntityState[] }
+      if (Array.isArray(value)) {
+        const prefix = key.slice(0, key.indexOf(":") + 1);
+        for (const item of value) {
+          const id = item && typeof item === "object" ? (item as { entity_id?: unknown }).entity_id : undefined;
+          if (typeof id === "string") this.set(prefix + id, item, ts);
+        }
+      }
+      return;
+    }
+    const isNew = !this.values.has(key);
     this.values.set(key, value);
     this.stamps.set(key, ts);
+    if (isNew) {
+      this.patternListeners.forEach((set, pattern) => {
+        if (!matchesWildcard(pattern, key)) return;
+        this.patternCache.delete(pattern);
+        set.forEach((l) => l());
+      });
+    }
     this.listeners.get(key)?.forEach((l) => l());
     this.anyListeners.forEach((l) => l());
   }
@@ -29,7 +66,9 @@ export class DataStore {
     const keys = Array.from(this.values.keys());
     this.values.clear();
     this.stamps.clear();
+    this.patternCache.clear();
     keys.forEach((k) => this.listeners.get(k)?.forEach((l) => l()));
+    this.patternListeners.forEach((set) => set.forEach((l) => l()));
     this.anyListeners.forEach((l) => l());
   }
 
@@ -40,6 +79,29 @@ export class DataStore {
     return () => {
       set!.delete(listener);
       if (set!.size === 0) this.listeners.delete(key);
+    };
+  }
+
+  /** Concrete keys collected so far for a wildcard (sorted; same array until a new key arrives). */
+  keysMatching(pattern: DataKey): DataKey[] {
+    if (!isWildcard(pattern)) return this.values.has(pattern) ? [pattern] : EMPTY;
+    let hit = this.patternCache.get(pattern);
+    if (!hit) {
+      hit = Array.from(this.values.keys()).filter((k) => matchesWildcard(pattern, k)).sort();
+      if (!hit.length) hit = EMPTY;
+      this.patternCache.set(pattern, hit);
+    }
+    return hit;
+  }
+
+  /** Notified when a new key matching the wildcard appears (or on clear). */
+  subscribePattern(pattern: DataKey, listener: Listener): () => void {
+    let set = this.patternListeners.get(pattern);
+    if (!set) this.patternListeners.set(pattern, (set = new Set()));
+    set.add(listener);
+    return () => {
+      set!.delete(listener);
+      if (set!.size === 0) this.patternListeners.delete(pattern);
     };
   }
 

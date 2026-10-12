@@ -2,9 +2,8 @@
  * Home Assistant MQTT discovery for agent sensors.
  * https://www.home-assistant.io/integrations/sensor.mqtt/
  *
- * Each sensor's state is picked out of the shared sensors JSON array by id. If the id is missing
- * from a reading (LHM restarted, sensor vanished), the template renders `None`, which the HA MQTT
- * sensor maps to "unknown" instead of raising a template error or storing a bogus 0.
+ * Each sensor's state is picked out of the shared sensors JSON array by id with a Jinja loop.
+ * All entities share one state topic, so HA parses one message per interval for the whole PC.
  */
 import type { AgentSensor } from "@homepanel/protocol";
 import { topics } from "@homepanel/protocol";
@@ -18,10 +17,7 @@ export interface DiscoveryMessage {
 export function valueTemplate(sensorId: string): string {
   // ids are [a-z0-9_] slugs, so they're safe inside a single-quoted Jinja string
   const safe = sensorId.replace(/[^a-z0-9_]/gi, "");
-  return (
-    `{% set s = value_json.sensors | default([]) | selectattr('id', 'eq', '${safe}') | list %}` +
-    `{{ s[0].value if s | length > 0 else none }}`
-  );
+  return `{% for s in value_json.sensors %}{% if s.id == '${safe}' %}{{ s.value }}{% endif %}{% endfor %}`;
 }
 
 function deviceClass(s: AgentSensor): string | undefined {
@@ -35,7 +31,7 @@ function deviceClass(s: AgentSensor): string | undefined {
 function icon(s: AgentSensor): string | undefined {
   if (deviceClass(s)) return undefined; // HA picks one from the device class
   if (s.kind === "fan") return "mdi:fan";
-  if (s.kind === "load") return s.id.startsWith("gpu") ? "mdi:expansion-card" : s.id.startsWith("ram") ? "mdi:memory" : "mdi:cpu-64-bit";
+  if (s.kind === "load") return s.id.startsWith("gpu") ? "mdi:expansion-card" : s.id.startsWith("ram") ? "mdi:memory" : s.id.startsWith("cpu") ? "mdi:cpu-64-bit" : "mdi:gauge";
   return undefined;
 }
 

@@ -26,7 +26,11 @@ export const zigbeeStep: Step = {
     try {
       const c = ctx.ha();
       const [zha, sky] = await c.withWs(async (s) => [await s.configEntries("zha"), await s.configEntries(ZBT1_DOMAIN)]);
-      if (zha!.length) return { done: true, detail: "ZHA (Zigbee) is set up." };
+      if (zha!.length) {
+        const devs = await c.withWs((s) => s.call<unknown[]>("zha/devices")).catch(() => undefined);
+        // zha/devices includes the coordinator (the ZBT-1 itself)
+        return { done: true, detail: `ZHA (Zigbee) is set up${devs ? ` — ${devs.length} device(s) incl. the ZBT-1 coordinator` : ""}.` };
+      }
       const flows = await c.flowsInProgress().catch(() => []);
       if (flows.some((f) => f.handler === ZBT1_DOMAIN || f.handler === "zha"))
         return { done: false, detail: "ZBT-1 discovered — waiting for you to accept it in HA." };
@@ -233,7 +237,7 @@ export const remoteStep: Step = {
 /* Screens                                                              */
 /* ------------------------------------------------------------------ */
 
-export function pairUrl(ctx: StepContext) {
+export function pairUrl(ctx: Pick<StepContext, "store">) {
   return ctx.store.state.serverUrl ?? `http://${ctx.store.state.host ?? "homeassistant.local"}:${SERVER_PORT}`;
 }
 

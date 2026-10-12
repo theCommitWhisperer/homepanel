@@ -108,10 +108,19 @@ export function Toasts() {
 export type RunState = "idle" | "pending" | "ok" | "error";
 
 const FRIENDLY: Record<string, string> = {
-  "home-only": "Only allowed from home Wi-Fi",
+  "home-only": "Only works from a screen at home",
   "not-connected": "Not connected",
+  "Not connected": "Not connected to HomePanel",
+  disconnected: "Connection dropped, try again",
   offline: "That PC is offline",
+  "agent-offline": "That PC is offline",
+  "invalid-action": "This button is set up wrong",
+  "unknown-action": "The PC doesn't offer that action",
 };
+
+/** Server errors that mean "ask the user, then resend with confirmed:true". */
+export const isConfirmError = (e?: string) => e === "needs-confirm" || e === "confirm-required";
+export const friendlyError = (e?: string) => (e ? FRIENDLY[e] ?? e.replace(/-/g, " ") : "Failed");
 
 /**
  * Runs an action: optional pre-confirm, spinner state, ✓/error toast, and the server's
@@ -131,13 +140,13 @@ export function useRunAction() {
     if (r.ok) {
       setState("ok");
       toast(label + " — done", "ok", 2500);
-    } else if (r.error === "confirm-required" && !confirmed) {
+    } else if (isConfirmError(r.error) && !confirmed) {
       setState("idle");
       setConfirm({ action, label });
       return;
     } else {
       setState("error");
-      toast(label + ": " + (FRIENDLY[r.error ?? ""] ?? r.error ?? "failed"), "error", 4500);
+      toast(label + ": " + friendlyError(r.error), "error", 4500);
     }
     setTimeout(() => mounted.current && setState("idle"), 1600);
   };
@@ -151,8 +160,14 @@ export function useRunAction() {
   const sheet = confirm ? (
     <ConfirmSheet
       title={confirm.label + "?"}
-      body="Tap Run to confirm."
-      confirmLabel="Run"
+      body={
+        confirm.action.kind === "agent"
+          ? `This runs “${confirm.label}” on ${confirm.action.pc} right away.`
+          : confirm.action.kind === "wol"
+            ? `This wakes ${confirm.action.pc}.`
+            : "This runs right away."
+      }
+      confirmLabel={confirm.label}
       danger={confirm.action.kind === "agent" && /shut|restart|reboot|sleep|power/i.test(confirm.label + (confirm.action as any).action)}
       onCancel={() => setConfirm(null)}
       onConfirm={() => {

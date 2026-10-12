@@ -182,6 +182,47 @@ describe("Assistant", () => {
     expect(r2.error).toMatch(/does not seem to support tool calling/);
   });
 
+  it("reports malformed tool arguments back to the model and continues", async () => {
+    const t = tools();
+    const bad = {
+      body: {
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              content: null,
+              tool_calls: [{ id: "m1", type: "function", function: { name: "toggle_light", arguments: "{entity: light.k" } }],
+            },
+          },
+        ],
+      },
+    };
+    const f = fakeFetch([bad, say("Sorry, which light?")]);
+    const a = new Assistant({ provider, system: "s", tools: t.list, fetchImpl: f.fetch });
+    const r = await a.step([{ role: "user", content: "toggle kitchen" }]);
+    expect(r.pending).toBeUndefined();
+    expect(t.actRun).not.toHaveBeenCalled();
+    const toolMsg = f.calls[1]!.body.messages.find((m: any) => m.role === "tool");
+    expect(toolMsg.tool_call_id).toBe("m1");
+    expect(toolMsg.content).toMatch(/Invalid JSON arguments/);
+    expect(r.messages.at(-1)!.content).toBe("Sorry, which light?");
+  });
+
+  it("falls back to plain chat when the model has no tool support", async () => {
+    const t = tools();
+    const f = fakeFetch([
+      { status: 400, body: { error: { message: "registry.ollama.ai/library/llama2 does not support tools" } } },
+      say("Open Settings and add the integration."),
+    ]);
+    const a = new Assistant({ provider: { provider: "ollama", model: "llama2" }, system: "sys", tools: t.list, fetchImpl: f.fetch });
+    const r = await a.step([{ role: "user", content: "help" }]);
+    expect(r.error).toBeUndefined();
+    expect(f.calls[1]!.body.tools).toBeUndefined();
+    expect(f.calls[1]!.body.messages[0].content).toMatch(/tools are unavailable/);
+    expect(r.messages.some((m) => /does not support tool calling/.test(m.content))).toBe(true);
+    expect(r.messages.at(-1)!.content).toBe("Open Settings and add the integration.");
+  });
+
   it("missing API key is a config error", async () => {
     const a = new Assistant({ provider: { provider: "gemini" }, system: "s", tools: [], fetchImpl: fakeFetch([]).fetch });
     const r = await a.step([{ role: "user", content: "hi" }]);

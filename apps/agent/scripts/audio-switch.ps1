@@ -1,14 +1,22 @@
 <#
-  HomePanel example: switch the default Windows playback device by (part of) its name.
+  HomePanel example actions "audio-speakers" / "audio-headphones": switch the default Windows
+  playback device by (part of) its name.
 
-  Requires the AudioDeviceCmdlets PowerShell module (one-time setup, in an *admin* PowerShell):
+  REQUIRES the AudioDeviceCmdlets PowerShell module. Install it once, in an *administrator*
+  PowerShell (Windows PowerShell 5.1 is fine):
 
       Install-Module -Name AudioDeviceCmdlets -Scope AllUsers -Force
-      # If asked about NuGet / an untrusted repository, answer Y.
+      # If asked to install the NuGet provider or trust PSGallery, answer Y.
+      # -Scope AllUsers matters: the agent runs as you, but elevated, and must find the module.
 
   Find the exact names of your devices with:
 
       Get-AudioDevice -List | Where-Object Type -eq 'Playback' | Format-Table Index, Name
+
+  Then put the right names in agent.yaml:
+
+      audio-speakers:   { type: script, script: 'scripts\audio-switch.ps1', args: ['-Name', 'Speakers'] }
+      audio-headphones: { type: script, script: 'scripts\audio-switch.ps1', args: ['-Name', 'Arctis'] }
 
   Usage:  audio-switch.ps1 -Name "Speakers"      (matches "Speakers (Realtek(R) Audio)")
           audio-switch.ps1 -Name "Headphones" -AlsoCommunications

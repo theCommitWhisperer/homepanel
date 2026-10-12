@@ -22,13 +22,22 @@ function copy(text: string) {
 
 export function agentYaml(pcId: string, name: string, key: string, host: string) {
   return `# agent.yaml for ${name}
+# Windows: C:\\ProgramData\\HomePanel\\agent.yaml   Linux: ~/.config/homepanel/agent.yaml
 pcId: ${pcId}
 name: ${name}
 key: ${key}
 mqtt:
   url: mqtt://${host}:1883
+  username: homepanel
+  password: change-me
+sensorSource: auto
+actions:
+  open-drive-c: { type: open, path: 'C:\\', label: "C: drive" }
 `;
 }
+
+/** Placeholder: the installer agent serves this script from the server. */
+export const installOneLiner = (origin: string) => `irm ${origin}/agent/install.ps1 | iex`;
 
 function AddSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
   const [name, setName] = useState("Gaming PC");
@@ -55,10 +64,13 @@ function AddSheet({ onClose, onDone }: { onClose: () => void; onDone: () => void
     return (
       <Sheet onClose={onClose} label="Computer added">
         <h2>{name} is registered</h2>
-        <p>Save this as <code>agent.yaml</code> next to the agent on that PC, then start the agent. The key is shown only once.</p>
+        <p>On that PC, run this in PowerShell (as administrator). It installs the agent and asks for the key below.</p>
+        <pre className="snippet one-liner">{installOneLiner(location.origin)}</pre>
+        <p>Or set it up by hand: save this as <code>agent.yaml</code>. The key is shown only once.</p>
         <pre className="snippet">{y}</pre>
         <div className="row">
-          <button className="btn" onClick={() => copy(y)}><Icon name="copy" size={18} /> Copy</button>
+          <button className="btn" onClick={() => copy(installOneLiner(location.origin))}><Icon name="terminal" size={18} /> Copy command</button>
+          <button className="btn" onClick={() => copy(y)}><Icon name="copy" size={18} /> Copy YAML</button>
           <button className="btn primary" onClick={onClose}>Done</button>
         </div>
       </Sheet>

@@ -3,7 +3,6 @@ import "./admin.css";
 import { Icon } from "../icons";
 import { Toasts } from "../components";
 import { api, ApiError, adminSession, setUnauthorizedHandler } from "./api";
-import { PairingTab } from "./PairingTab";
 import { ScreensTab } from "./ScreensTab";
 import { ProfilesTab } from "./ProfilesTab";
 import { ComputersTab } from "./ComputersTab";
@@ -12,7 +11,6 @@ import { AssistantTab } from "./AssistantTab";
 import { applyTheme } from "../kiosk/KioskApp";
 
 const TABS = [
-  { id: "pairing", label: "Pairing", icon: "plus" },
   { id: "screens", label: "Screens", icon: "monitor" },
   { id: "profiles", label: "Profiles", icon: "sliders" },
   { id: "computers", label: "Computers", icon: "terminal" },
@@ -57,7 +55,7 @@ function Login({ onDone }: { onDone: () => void }) {
 
 function readTab(): TabId {
   const h = location.hash.replace(/^#/, "");
-  return (TABS.find((t) => t.id === h)?.id ?? "pairing") as TabId;
+  return (TABS.find((t) => t.id === h)?.id ?? "screens") as TabId;
 }
 
 export function AdminApp() {
@@ -89,7 +87,6 @@ export function AdminApp() {
         <button className="btn ghost signout" onClick={() => { adminSession.set(null); setAuthed(false); }}>Sign out</button>
       </header>
       <main className="admin-main">
-        {tab === "pairing" && <PairingTab />}
         {tab === "screens" && <ScreensTab />}
         {tab === "profiles" && <ProfilesTab />}
         {tab === "computers" && <ComputersTab />}

@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import path from "node:path";
 import type { DeviceInfo, PairStatusResponse, PendingPairing } from "@homepanel/protocol";
-import { randomId, randomToken, readJson, sha256, sixDigits, writeJson } from "./util.js";
+import { randomId, randomToken, readJson, sha256, sixDigits, writeJson } from "./store.js";
 
 export interface StoredDevice {
   id: string;

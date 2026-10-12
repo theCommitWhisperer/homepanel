@@ -11,22 +11,30 @@ const SUGGESTIONS = [
   "Which lights do I have?",
 ];
 
-function NoProvider() {
+const PROVIDERS: { name: string; how: string; yaml: string }[] = [
+  { name: "Google Gemini · free tier", how: "Key from aistudio.google.com → Get API key.", yaml: "assistant:\n  provider: gemini\n  apiKey: YOUR_KEY" },
+  { name: "Groq · free tier, very fast", how: "Key from console.groq.com → API Keys.", yaml: "assistant:\n  provider: groq\n  apiKey: gsk_YOUR_KEY" },
+  { name: "OpenRouter · free models", how: "Key from openrouter.ai/keys; pick a model ending in :free.", yaml: "assistant:\n  provider: openrouter\n  apiKey: sk-or-YOUR_KEY\n  model: meta-llama/llama-3.3-70b-instruct:free" },
+  { name: "Ollama · runs on your own PC", how: "Install Ollama, run: ollama pull llama3.1", yaml: "assistant:\n  provider: ollama\n  baseUrl: http://192.168.1.20:11434/v1\n  model: llama3.1" },
+];
+
+function NoProvider({ unavailable }: { unavailable?: boolean }) {
   return (
     <div className="no-provider">
-      <h3>Connect a free AI provider</h3>
-      <p>The assistant needs a model to talk to. Add an <code>assistant:</code> section in the Doorbells & config tab (or in <code>config.yaml</code>), then try again.</p>
+      <h3>{unavailable ? "The AI provider isn't answering" : "Connect a free AI provider"}</h3>
+      <p>
+        {unavailable
+          ? "Check the assistant: settings (key, model, address) and that the service is reachable from the server."
+          : "The assistant needs a model to talk to. Add an assistant: section to config.yaml in the Doorbells & config tab, save, and ask again. Any one of these works:"}
+      </p>
       <div className="np-grid">
-        <div>
-          <b>Google Gemini (free tier)</b>
-          <p>Get a key at Google AI Studio (aistudio.google.com → Get API key).</p>
-          <pre className="snippet">{`assistant:\n  provider: gemini\n  apiKey: YOUR_KEY`}</pre>
-        </div>
-        <div>
-          <b>Ollama (runs on your own PC)</b>
-          <p>Install Ollama, run <code>ollama pull llama3.1</code>, and point HomePanel at it.</p>
-          <pre className="snippet">{`assistant:\n  provider: ollama\n  baseUrl: http://192.168.1.20:11434/v1\n  model: llama3.1`}</pre>
-        </div>
+        {PROVIDERS.map((p) => (
+          <div key={p.name}>
+            <b>{p.name}</b>
+            <p>{p.how}</p>
+            <pre className="snippet">{p.yaml}</pre>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -109,7 +117,7 @@ export function AssistantTab() {
             </div>
           </div>
         )}
-        {error === "no-provider" ? <NoProvider /> : error ? <div className="form-err">{error}</div> : null}
+        {error === "no-provider" || error === "assistant-unavailable" ? <NoProvider unavailable={error === "assistant-unavailable"} /> : error ? <div className="form-err">{error}</div> : null}
         <div ref={endRef} />
       </div>
       <form className="composer" onSubmit={(e) => { e.preventDefault(); void send(input); }}>

@@ -1,6 +1,7 @@
 import type { HostType } from "../state.js";
 import { detectStep } from "./detect.js";
 import { doorbellStep, remoteStep, screensStep, zigbeeStep } from "./extras.js";
+import { envStep, healthStep } from "./finish.js";
 import { hostStep } from "./host.js";
 import { mqttStep } from "./mqtt.js";
 import { onboardStep, tokenStep } from "./onboard.js";
@@ -15,11 +16,13 @@ export const ALL_STEPS: Step[] = [
   tokenStep,
   mqttStep,
   serverStep,
+  envStep,
   zigbeeStep,
   doorbellStep,
   remoteStep,
   screensStep,
   pcsStep,
+  healthStep,
 ];
 
 export const STEP_IDS = ALL_STEPS.map((s) => s.id);
@@ -34,13 +37,13 @@ export function stepsFor(host: HostType | undefined): Step[] {
     switch (host) {
       case "linux-docker":
         // the installer creates HA on this machine, so there is nothing to discover first
-        return ["host", "onboard", "token", "mqtt", "server", "zigbee", "doorbells", "remote", "screens", "pcs"];
+        return ["host", "onboard", "token", "mqtt", "server", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
       case "vm-windows":
       case "nas-proxmox":
       case "x86-bare-metal":
       case "raspberry-pi":
       case "ha-green":
-        return ["detect", "host", "onboard", "token", "mqtt", "server", "zigbee", "doorbells", "remote", "screens", "pcs"];
+        return ["detect", "host", "onboard", "token", "mqtt", "server", "env", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
       default:
         return STEP_IDS;
     }
@@ -49,6 +52,6 @@ export function stepsFor(host: HostType | undefined): Step[] {
 }
 
 /** Steps that change something (need approval in AI mode). */
-export const READ_ONLY_STEPS = new Set(["detect", "screens"]);
+export const READ_ONLY_STEPS = new Set(["detect", "screens", "health"]);
 
 export type { Step, StepContext } from "./types.js";

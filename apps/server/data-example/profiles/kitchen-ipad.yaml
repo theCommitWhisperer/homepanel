@@ -8,6 +8,7 @@ widgets:
   - id: clock
     type: clock
     at: [0, 0, 4, 2]
+    format: 12h
     format24: false
     showDate: true
 
@@ -21,7 +22,7 @@ widgets:
     type: lights
     title: Lights
     at: [0, 2, 3, 3]
-    entities: [light.kitchen, light.living_room]
+    entities: [light.kitchen, light.living_room, light.desk_lamp]
 
   - id: front-door
     type: camera
@@ -35,16 +36,16 @@ widgets:
     at: [0, 5, 6, 2]
     buttons:
       - label: All lights off
-        icon: "🌙"
-        action: { kind: ha, domain: light, service: turn_off, data: { entity_id: [light.living_room, light.kitchen, light.office] } }
-      - label: Desk fan
-        icon: "🌀"
-        action: { kind: ha, domain: switch, service: toggle, data: { entity_id: switch.desk_fan } }
+        icon: moon
+        action: { kind: ha, domain: light, service: turn_off, data: { entity_id: [light.living_room, light.kitchen, light.desk_lamp] } }
+      - label: Kitchen
+        icon: bulb
+        action: { kind: ha, domain: light, service: toggle, data: { entity_id: light.kitchen } }
       - label: Play / Pause
         icon: "⏯️"
-        action: { kind: agent, pc: gaming-pc, action: play-pause }
+        action: { kind: agent, pc: gaming-pc, action: media-playpause }
       - label: Wake PC
-        icon: "⚡"
+        icon: power
         action: { kind: wol, pc: gaming-pc }
 
   - id: note

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { DeviceStore, PAIRING_TTL_MS } from "../src/devices.js";
-import { sha256 } from "../src/util.js";
+import { sha256 } from "../src/store.js";
 import { plainApp, tmpDir } from "./helpers.js";
 import fs from "node:fs";
 import path from "node:path";

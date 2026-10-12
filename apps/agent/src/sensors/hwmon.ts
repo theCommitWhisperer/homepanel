@@ -1,12 +1,13 @@
 /**
- * Linux sensors: /sys/class/hwmon/hwmon* (temperatures, fans, power) + /proc/stat (CPU load)
- * + /proc/meminfo (RAM load). No lm-sensors package needed.
+ * Linux sensors: /sys/class/hwmon/hwmon* (temperatures, fans, power) and /sys/class/thermal
+ * (thermal zones; the only source on many mini PCs / SBCs). No lm-sensors package needed.
+ * CPU and memory load come from the cross-platform OS source (os.ts).
  *
- * Driver names → id prefixes:
- *   k10temp / zenpower / coretemp / cpu_thermal  → cpu_*    (Tctl/Package → cpu_package)
- *   amdgpu / nouveau / radeon / i915 / xe         → gpu_*    (edge → gpu_core, junction → gpu_hotspot, mem → gpu_memory_junction)
- *   nvme                                          → nvme_<model-slug>_temp
- *   nct* / it87 / acpitz / asus* / ...            → mainboard_* (fans → fan_<n>)
+ * Driver names → ids (same scheme as the LibreHardwareMonitor parser):
+ *   k10temp / zenpower / coretemp / cpu_thermal  → cpu_*   (Tctl / Package id 0 → cpu_package, Core 0 → cpu_core1)
+ *   amdgpu / nouveau / radeon / i915 / xe         → gpu_*   (edge → gpu_core, junction → gpu_hotspot, mem → gpu_memory_junction)
+ *   nvme                                          → nvme0_temp, nvme1_temp ... (in hwmon order)
+ *   nct* / it87 / acpitz / asus* / ...            → mb_*    (fans → fan1, fan2 ...)
  */
 import { readFile, readdir, readlink } from "node:fs/promises";
 import { join } from "node:path";
@@ -41,8 +42,9 @@ function cpuTempSlug(label: string, idx: number): string {
   const l = label.toLowerCase();
   if (/^(tctl|tdie|package id \d+|cpu|physical id \d+)$/.test(l) || (l === "" && idx === 1)) return "package";
   if (/^tccd\d+$/.test(l)) return `ccd${l.slice(4)}`;
+  if (l === "core max") return "core_max";
   const core = l.match(/^core (\d+)$/);
-  if (core) return `core_${Number(core[1]) + 1}`; // coretemp counts from 0; LHM from 1 — match LHM
+  if (core) return `core${Number(core[1]) + 1}`; // coretemp counts from 0; LHM from 1 — match LHM
   return slugify(label) || `temp${idx}`;
 }
 
@@ -66,6 +68,7 @@ export async function readHwmon(root = "/sys/class/hwmon"): Promise<InternalSens
   const ids = new IdAllocator();
   const out: InternalSensor[] = [];
   let gpuCount = 0;
+  let nvmeCount = 0;
   let mainboardFan = 0;
 
   for (const e of entries) {
@@ -92,10 +95,10 @@ export async function readHwmon(root = "/sys/class/hwmon"): Promise<InternalSens
       category = "nvme";
       const model = (await nvmeModel(dir)) ?? e;
       hardware = model;
-      prefix = `nvme_${slugify(model)}`;
+      prefix = `nvme${nvmeCount++}`;
     } else if (/^(nct|it8|f71|w83|asus|acpitz|gigabyte|dell|thinkpad|applesmc|nzxt)/.test(driver)) {
       category = "mainboard";
-      prefix = "mainboard";
+      prefix = "mb";
     } else {
       category = "other";
       prefix = slugify(driver);
@@ -118,15 +121,18 @@ export async function readHwmon(root = "/sys/class/hwmon"): Promise<InternalSens
         slug = gpuTempSlug(label, idx);
         name = { core: "GPU Core", hotspot: "GPU Hot Spot", memory_junction: "GPU Memory Junction" }[slug] ?? `GPU ${label}`;
       } else if (category === "nvme") {
-        slug = idx === 1 || /composite/i.test(label) ? "temp" : `temp_${slugify(label) || idx}`;
+        slug = idx === 1 || /composite/i.test(label) ? "temp" : /^sensor \d+$/i.test(label) ? `temp${label.match(/\d+/)![0]}` : `temp_${slugify(label) || idx}`;
         name = `${hardware} ${idx === 1 ? "Temperature" : label || `Temp ${idx}`}`;
+      } else if (category === "mainboard" && /^(systin|system|motherboard)$/i.test(label)) {
+        slug = "";
+        name = "Motherboard";
       } else {
         slug = slugify(label) || `temp${idx}`;
         name = category === "mainboard" ? `Motherboard ${label || `Temp ${idx}`}` : `${driver} ${label || `temp${idx}`}`;
       }
       const value = round(milli / 1000, 1);
       out.push({
-        id: ids.take(`${prefix}_${slug}`),
+        id: ids.take(slug ? `${prefix}_${slug}` : "motherboard"),
         name,
         kind: "temperature",
         value,
@@ -144,8 +150,8 @@ export async function readHwmon(root = "/sys/class/hwmon"): Promise<InternalSens
       if (!Number.isFinite(v)) continue;
       const label = (await readTrim(join(dir, `fan${idx}_label`))) ?? "";
       let id: string;
-      if (category === "mainboard") id = `fan_${++mainboardFan}`;
-      else id = `${prefix}_fan${fans.length > 1 ? `_${idx}` : ""}`;
+      if (category === "mainboard") id = `fan${++mainboardFan}`;
+      else id = `${prefix}_fan${fans.length > 1 ? idx : ""}`;
       out.push({
         id: ids.take(id),
         name: label || (category === "gpu" ? "GPU Fan" : `Fan #${category === "mainboard" ? mainboardFan : idx}`),
@@ -165,8 +171,8 @@ export async function readHwmon(root = "/sys/class/hwmon"): Promise<InternalSens
       const v = Number(await readTrim(join(dir, f)));
       if (!Number.isFinite(v)) continue;
       out.push({
-        id: ids.take(`${prefix}_${category === "gpu" ? "package" : `power${idx}`}_power`.replace(/power\d+_power$/, "power")),
-        name: category === "gpu" ? "GPU Package" : `${driver} Power`,
+        id: ids.take(`${prefix}_power`),
+        name: category === "gpu" ? "GPU Power" : category === "cpu" ? "CPU Power" : `${driver} Power`,
         kind: "power",
         value: round(v / 1e6, 1),
         unit: "W",
@@ -178,7 +184,7 @@ export async function readHwmon(root = "/sys/class/hwmon"): Promise<InternalSens
       // amdgpu exposes busy % on the PCI device
       const busy = await readTrim(join(dir, "device", "gpu_busy_percent"));
       if (busy !== undefined && Number.isFinite(Number(busy))) {
-        out.push({ id: ids.take(`${prefix}_core_load`), name: "GPU Core", kind: "load", value: Number(busy), unit: "%", hardware });
+        out.push({ id: ids.take(`${prefix}_load_core`), name: "GPU Core Load", kind: "load", value: Number(busy), unit: "%", hardware });
       }
     }
   }
@@ -190,82 +196,62 @@ function byIndex(a: string, b: string) {
 }
 
 /* ------------------------------------------------------------------ */
-/* /proc/stat CPU load (delta between two reads)                        */
+/* /sys/class/thermal                                                   */
 /* ------------------------------------------------------------------ */
-export interface CpuTimes {
-  idle: number;
-  total: number;
-}
-export function parseProcStat(text: string): Map<string, CpuTimes> {
-  const m = new Map<string, CpuTimes>();
-  for (const line of text.split("\n")) {
-    if (!line.startsWith("cpu")) continue;
-    const [name, ...rest] = line.trim().split(/\s+/);
-    const n = rest.map(Number);
-    const idle = (n[3] ?? 0) + (n[4] ?? 0); // idle + iowait
-    const total = n.slice(0, 8).reduce((a, b) => a + b, 0); // exclude guest (already in user)
-    m.set(name!, { idle, total });
-  }
-  return m;
-}
-export function loadPercent(prev: CpuTimes, cur: CpuTimes): number {
-  const dt = cur.total - prev.total;
-  if (dt <= 0) return 0;
-  return round(Math.min(100, Math.max(0, (1 - (cur.idle - prev.idle) / dt) * 100)), 1);
-}
+const CPU_ZONES = /^(x86_pkg_temp|cpu[-_]thermal|soc[-_]thermal|cpu|tcpu|k10temp)$/i;
 
-export function parseMeminfo(text: string): { totalKb: number; availKb: number } | null {
-  const get = (k: string) => Number(text.match(new RegExp(`^${k}:\\s+(\\d+)`, "m"))?.[1]);
-  const totalKb = get("MemTotal");
-  const availKb = get("MemAvailable");
-  if (!Number.isFinite(totalKb) || !Number.isFinite(availKb)) return null;
-  return { totalKb, availKb };
+/**
+ * Thermal zones. Most duplicate a hwmon chip (acpitz, x86_pkg_temp ≈ coretemp), so they are
+ * hidden unless hwmon had no CPU temperature, in which case the CPU zone becomes cpu_package
+ * (Raspberry Pi, many ARM boards and some Intel mini PCs).
+ */
+export async function readThermalZones(root = "/sys/class/thermal", haveCpuTemp = false): Promise<InternalSensor[]> {
+  let entries: string[];
+  try {
+    entries = (await readdir(root)).filter((e) => /^thermal_zone\d+$/.test(e));
+  } catch {
+    return [];
+  }
+  entries.sort((a, b) => Number(a.slice(12)) - Number(b.slice(12)));
+  const ids = new IdAllocator();
+  const out: InternalSensor[] = [];
+  let usedCpu = haveCpuTemp;
+  for (const e of entries) {
+    const type = (await readTrim(join(root, e, "type"))) ?? e;
+    const milli = Number(await readTrim(join(root, e, "temp")));
+    if (!Number.isFinite(milli)) continue;
+    const value = round(milli / 1000, 1);
+    if (!usedCpu && CPU_ZONES.test(type)) {
+      usedCpu = true;
+      out.push({ id: ids.take("cpu_package"), name: "CPU Package", kind: "temperature", value, unit: "°C", hardware: type });
+      continue;
+    }
+    out.push({
+      id: ids.take(`thermal_${slugify(type) || e}`),
+      name: `Thermal ${type}`,
+      kind: "temperature",
+      value,
+      unit: "°C",
+      hardware: type,
+      hiddenByDefault: true,
+    });
+  }
+  return out;
 }
 
 export class HwmonSource implements SensorSource {
   readonly name = "Linux hwmon";
   readonly hint = "No /sys/class/hwmon sensors found. Try `sudo modprobe k10temp` (AMD) or `coretemp` (Intel), or run `sensors-detect`.";
-  private prev?: Map<string, CpuTimes>;
   constructor(
     private root = "/sys/class/hwmon",
-    private procRoot = "/proc",
+    private thermalRoot = "/sys/class/thermal",
   ) {}
   async read(): Promise<InternalSensor[]> {
-    const sensors = await readHwmon(this.root);
-    const stat = await readTrim(join(this.procRoot, "stat"));
-    if (stat) {
-      const cur = parseProcStat(stat);
-      if (this.prev) {
-        const prevTotal = this.prev.get("cpu");
-        const curTotal = cur.get("cpu");
-        if (prevTotal && curTotal) {
-          sensors.push({ id: "cpu_total_load", name: "CPU Total", kind: "load", value: loadPercent(prevTotal, curTotal), unit: "%", hardware: "CPU" });
-        }
-        for (const [name, t] of cur) {
-          const p = this.prev.get(name);
-          if (name === "cpu" || !p) continue;
-          const n = Number(name.slice(3)) + 1;
-          sensors.push({
-            id: `cpu_thread_${n}_load`,
-            name: `CPU Thread #${n}`,
-            kind: "load",
-            value: loadPercent(p, t),
-            unit: "%",
-            hardware: "CPU",
-            hiddenByDefault: true,
-          });
-        }
-      }
-      this.prev = cur;
-    }
-    const mem = await readTrim(join(this.procRoot, "meminfo"));
-    const mi = mem ? parseMeminfo(mem) : null;
-    if (mi && mi.totalKb > 0) {
-      const usedGb = (mi.totalKb - mi.availKb) / 1024 / 1024;
-      sensors.push({ id: "ram_load", name: "Memory", kind: "load", value: round((1 - mi.availKb / mi.totalKb) * 100, 1), unit: "%", hardware: "Memory" });
-      sensors.push({ id: "ram_used", name: "Memory Used", kind: "data", value: round(usedGb, 1), unit: "GB", hardware: "Memory" });
-    }
-    return sensors;
+    const hw = await readHwmon(this.root);
+    const haveCpu = hw.some((s) => s.id === "cpu_package");
+    const zones = await readThermalZones(this.thermalRoot, haveCpu);
+    const taken = new Set(hw.map((s) => s.id));
+    return [...hw, ...zones.filter((z) => !taken.has(z.id))];
   }
 }
 

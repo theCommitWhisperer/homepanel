@@ -5,19 +5,18 @@
   "type": "module",
   "description": "HomePanel PC agent: hardware sensors, drives and allowlisted actions over MQTT",
   "bin": {
-    "homepanel-agent": "dist/agent.cjs"
+    "homepanel-agent": "dist/homepanel-agent.mjs"
   },
+  "engines": { "node": ">=22" },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "node scripts/bundle.mjs",
+    "bundle": "node scripts/bundle.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "test": "vitest run",
-    "bundle": "node build/bundle.mjs",
-    "smoke": "node dev/smoke.mjs",
     "dev": "tsx src/cli.ts run --mock"
   },
   "dependencies": {
     "@homepanel/protocol": "workspace:*",
-    "commander": "^15.0.0",
     "mqtt": "^5.16.0",
     "yaml": "^2.9.1",
     "zod": "^3.25.76"

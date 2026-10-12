@@ -51,6 +51,15 @@ export function validateProfileYaml(text: string): { profile: Profile | null; er
   return { profile: r.data, errors };
 }
 
+/** The one config value that identifies a widget in the schematic. */
+function detail(w: Record<string, unknown>): string {
+  for (const k of ["entity", "pc", "src", "text"]) if (typeof w[k] === "string") return String(w[k]);
+  if (Array.isArray(w.entities)) return (w.entities as string[]).join(", ");
+  if (Array.isArray(w.buttons)) return (w.buttons as unknown[]).length + " buttons";
+  if (w.type === "lights") return "all lights";
+  return "";
+}
+
 function Preview({ profile }: { profile: Profile | null }) {
   if (!profile) return <div className="preview empty-state">Fix the errors to see a preview.</div>;
   const { cols, rows } = profile.grid;
@@ -62,6 +71,7 @@ function Preview({ profile }: { profile: Profile | null }) {
           return (
             <div key={i} className={"pv-cell" + (pw.ok ? "" : " bad")} style={{ gridColumn: `${w.at[0] + 1} / span ${w.at[2]}`, gridRow: `${w.at[1] + 1} / span ${w.at[3]}` }}>
               <span className="pv-line" title={w.type}><b>{w.title ?? w.type}</b>{w.title ? " · " + w.type : ""}{w.id ? " #" + w.id : ""}</span>
+              {detail(w) && <span className="pv-line pv-detail">{detail(w)}</span>}
             </div>
           );
         })}

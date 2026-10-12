@@ -83,6 +83,27 @@ export class NodeSpawner implements Spawner {
   }
 }
 
+/**
+ * Dry-run executor: records and logs what would run, starts nothing. Used by tests, by
+ * `test-action` without --really, by `run --mock`, and by default on non-Windows machines.
+ */
+export class DryRunSpawner implements Spawner {
+  readonly calls: CommandSpec[] = [];
+  constructor(private logFn: (line: string) => void = () => undefined) {}
+  async run(spec: CommandSpec): Promise<RunResult> {
+    this.calls.push(spec);
+    this.logFn(`[dry-run] would run: ${describeCommand(spec)}`);
+    return { code: 0, stdout: "", stderr: "" };
+  }
+}
+
+/** One-line human description; inline PowerShell is shown decoded. */
+export function describeCommand(spec: CommandSpec): string {
+  const ps = decodePowershell(spec);
+  if (ps) return `${spec.cmd} -EncodedCommand <<${ps.split("\n").length} line script>>`;
+  return [spec.cmd, ...spec.args.map((a) => (/[\s"]/.test(a) ? JSON.stringify(a) : a))].join(" ");
+}
+
 /** Run and require exit code 0 (unless detached). */
 export async function runChecked(spawner: Spawner, spec: CommandSpec): Promise<RunResult> {
   const r = await spawner.run(spec);

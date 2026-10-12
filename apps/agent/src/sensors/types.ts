@@ -25,13 +25,11 @@ export class IdAllocator {
   }
 }
 
-export const DEFAULT_HA_LOADS = ["cpu_total_load", "gpu_core_load", "ram_load"];
-
 /** Kinds included when `sensors: auto` (everything except voltages, controls, raw factors...). */
 const AUTO_KINDS = new Set<SensorKind>(["temperature", "load", "fan", "power", "clock", "data"]);
 
 export interface InternalSensor extends AgentSensor {
-  /** true for things like voltages/fan-control % that `auto` should not publish */
+  /** true for things like voltages/per-thread loads that `auto` should not publish */
   hiddenByDefault?: boolean;
 }
 
@@ -42,19 +40,11 @@ export function filterSensors(all: InternalSensor[], filter: "auto" | string[]):
   return all.filter((s) => res.some((r) => r.test(s.id))).map(strip);
 }
 
-export function haSensorIds(
-  published: AgentSensor[],
-  setting: "default" | "none" | string[],
-): AgentSensor[] {
-  if (setting === "none") return [];
-  if (setting === "default") {
-    // all named temperatures (skip secondary NVMe sensors "_temp_2" and generic "temperature_6"
-    // Super I/O inputs) + headline loads
-    return published.filter(
-      (s) =>
-        (s.kind === "temperature" && !/_temp_\d+$|_temperature_\d+$/.test(s.id)) || DEFAULT_HA_LOADS.includes(s.id),
-    );
-  }
+/** Kinds that get Home Assistant entities by default. Clocks/data would flood HA's recorder. */
+const HA_KINDS = new Set<SensorKind>(["temperature", "load", "fan", "power"]);
+
+export function haSensors(published: AgentSensor[], setting: "default" | string[]): AgentSensor[] {
+  if (setting === "default") return published.filter((s) => HA_KINDS.has(s.kind));
   const res = setting.map(globToRegExp);
   return published.filter((s) => res.some((r) => r.test(s.id)));
 }

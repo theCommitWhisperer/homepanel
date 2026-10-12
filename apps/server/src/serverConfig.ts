@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { ServerConfigFileSchema, type ServerConfigFile } from "@homepanel/protocol";
-import { writeFileAtomic } from "./util.js";
+import { writeFileAtomic } from "./store.js";
 
 export type ConfigResult = { ok: true; config: ServerConfigFile } | { ok: false; errors: string[] };
 

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import YAML from "yaml";
 import { ProfileSchema, type Profile } from "@homepanel/protocol";
-import { writeFileAtomic } from "./util.js";
+import { writeFileAtomic } from "./store.js";
 
 export interface ProfileEntry {
   id: string;
@@ -157,6 +157,8 @@ export class ProfileStore extends EventEmitter {
   }
 
   delete(id: string): boolean {
+    // the id becomes part of a file path: never let "../x" reach unlink
+    if (!/^[a-z0-9-]+$/.test(id)) return false;
     let found = false;
     for (const ext of [".yaml", ".yml"]) {
       const f = path.join(this.dir, id + ext);

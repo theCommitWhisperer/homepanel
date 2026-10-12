@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { buildApp } from "./app.js";
-import { loadEnv } from "./config.js";
+import { loadEnv, withDataDirEnv } from "./config.js";
 
-const env = loadEnv();
+const env = loadEnv(withDataDirEnv());
 const { app, adminPassword } = await buildApp({ env });
 
 const shutdown = async (sig: string) => {

@@ -19,7 +19,8 @@ Poor placement is the most common reason Zigbee devices drop off.
 3. Click Submit, and when ZHA asks, accept the default network settings.
 
 `homepanel setup --step zigbee` checks whether the stick has been discovered or ZHA is already set up, and then shows these
-steps. The radio choice is made in HA's own dialog, not by the installer.
+steps. The radio choice is made in HA's own dialog, not by the installer. Afterwards it lists the Zigbee devices
+(via HA's `zha/devices` API; the ZBT-1 itself counts as one, the coordinator) and `homepanel setup --step health` shows the count.
 
 ## 3. Pair devices
 
@@ -29,8 +30,8 @@ They act as repeaters and extend the network for battery sensors.
 
 ## VMs and Docker
 
-- **Proxmox / VirtualBox:** pass the USB device through to the HA VM (see the [hardware guides](hardware/)).
-- **Docker:** the compose file runs HA privileged. You can also map only `/dev/serial/by-id/usb-Nabu_Casa_…`.
+- **Proxmox / VirtualBox:** pass the USB device through to the HA VM (see [hosts.md](hosts.md#nas-proxmox)).
+- **Docker:** the compose file runs HA privileged. You can also map only `/dev/serial/by-id/usb-Nabu_Casa_…` (commented example in `deploy/compose/compose.yaml`).
 
 ## Thread / Matter instead?
 

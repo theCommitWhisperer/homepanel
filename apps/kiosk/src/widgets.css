@@ -1,7 +1,7 @@
 /* ---------------- clock ---------------- */
 .clock { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; overflow: hidden; }
-.clock-time { font-weight: 200; line-height: 0.92; letter-spacing: -0.03em; display: flex; align-items: baseline; white-space: nowrap; }
-.clock-colon { opacity: 0.45; margin: 0 0.02em; position: relative; top: -0.06em; }
+.clock-time { font-weight: 300; line-height: 0.92; letter-spacing: -0.03em; display: flex; align-items: baseline; white-space: nowrap; }
+.clock-colon { color: var(--accent); opacity: 0.9; margin: 0 0.02em; position: relative; top: -0.06em; }
 .clock-ampm { font-weight: 500; letter-spacing: 0.02em; color: var(--ink-3); margin-left: 0.35em; }
 .clock-date { color: var(--ink-2); margin-top: 0.5em; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -9,7 +9,7 @@
 .text-widget { flex: 1; display: flex; align-items: center; color: var(--ink); white-space: pre-wrap; overflow: hidden; min-height: 0; }
 .text-widget.size-s { font-size: 17px; color: var(--ink-2); }
 .text-widget.size-m { font-size: 26px; font-weight: 500; }
-.text-widget.size-l { font-size: 44px; font-weight: 300; line-height: 1.1; }
+.text-widget.size-l { font-size: 44px; font-weight: 350; line-height: 1.1; }
 
 /* ---------------- shared status colors ---------------- */
 .lv-ok { color: var(--ink); }
@@ -25,13 +25,14 @@
 
 /* ---------------- pc-temps ---------------- */
 .pctemps { flex: 1; display: flex; flex-direction: column; min-height: 0; gap: 10px; overflow: hidden; }
-.pc-head { display: flex; align-items: center; gap: 10px; font-size: 16px; min-width: 0; color: var(--ink-2); }
+.pc-head { display: flex; align-items: center; gap: 10px; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; min-width: 0; color: var(--ink-3); }
 .pc-name { font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.pc-state { margin-left: auto; color: var(--ink-3); font-size: 14px; font-weight: 600; flex: none; }
+.pc-state { margin-left: auto; color: var(--ink-3); font-size: 12px; font-weight: 650; flex: none; }
+.pctemps:not(.is-offline) .pc-state { color: var(--accent); }
 .hot { display: flex; align-items: stretch; gap: 18px; min-height: 0; flex: 1 1 auto; }
 .hot.compact { flex: none; }
 .hot-main { flex: none; display: flex; flex-direction: column; justify-content: flex-start; min-width: 0; }
-.hot-value { font-weight: 200; line-height: 0.9; letter-spacing: -0.04em; white-space: nowrap; }
+.hot-value { font-weight: 300; line-height: 0.9; letter-spacing: -0.04em; white-space: nowrap; }
 .hot-unit { font-size: 0.36em; vertical-align: top; position: relative; top: 0.12em; color: var(--ink-3); margin-left: 0.02em; }
 .hot-label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 16px; font-weight: 600; margin-top: 6px; white-space: nowrap; }
 .hot-spark { flex: 1 1 auto; min-width: 60px; position: relative; min-height: 60px; }
@@ -130,7 +131,7 @@ html.lite .light.on .light-icon { filter: none; }
   background: transparent; border: 0; text-align: left; padding: 0; color: var(--ink); position: relative; overflow: hidden;
 }
 .entity-label { color: var(--ink-2); font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.entity-value { font-weight: 250; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
+.entity-value { font-weight: 300; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: capitalize; }
 .entity-value.on { color: var(--accent); font-weight: 400; }
 .entity-value .unit, .weather-temp .unit { font-size: 0.42em; color: var(--ink-3); margin-left: 0.12em; font-weight: 500; }
 .switch { position: absolute; right: 0; top: 50%; margin-top: -17px; width: 60px; height: 34px; border-radius: 17px; background: var(--panel-2); transition: background 0.2s; }
@@ -140,7 +141,7 @@ html.lite .light.on .light-icon { filter: none; }
 
 .weather { flex: 1; display: flex; flex-direction: column; justify-content: center; min-height: 0; overflow: hidden; gap: 2px; }
 .weather-top { display: flex; align-items: center; gap: 14px; }
-.weather-temp { font-weight: 200; line-height: 1; letter-spacing: -0.03em; white-space: nowrap; }
+.weather-temp { font-weight: 300; line-height: 1; letter-spacing: -0.03em; white-space: nowrap; }
 .weather-cond { font-size: 20px; font-weight: 600; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .weather-meta { display: flex; gap: 14px; color: var(--ink-3); font-size: 15px; flex-wrap: wrap; }
 .forecast { display: flex; gap: 8px; margin-top: auto; padding-top: 12px; }
@@ -190,3 +191,15 @@ html.lite .light.on .light-icon { filter: none; }
   .to-actions { flex-direction: row; flex-wrap: wrap; }
   .to-actions .btn { flex: 1 1 160px; width: auto; }
 }
+
+/* scrollable tile grids: fade the bottom edge so a cut-off row reads as "more below" */
+.drives.scroll, .acts.scroll, .lights.scroll {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  padding-bottom: 24px;
+}
+.entity.row { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; }
+.entity.row .entity-label { flex: 1 1 auto; min-width: 0; }
+.entity.row .entity-value { flex: none; }
+.switch.inline { position: relative; top: auto; right: auto; margin: 0; flex: none; }
+.tile:has(.entity.row) .tile-body { padding-top: 8px; padding-bottom: 8px; }
