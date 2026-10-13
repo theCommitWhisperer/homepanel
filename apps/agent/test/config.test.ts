@@ -99,13 +99,14 @@ describe("config", () => {
     expect(c.haSensors).toEqual(["cpu_package"]);
   });
 
-  it("default config paths per platform", () => {
+  // these expect POSIX separators (path.join is platform-native); Windows paths are covered by the win32 case
+  it.skipIf(process.platform === "win32")("default config paths per platform", () => {
     expect(defaultConfigPath("win32", { ProgramData: "C:\\ProgramData" })).toMatch(/ProgramData.HomePanel.agent\.yaml$/);
     expect(defaultConfigPath("linux", { HOME: "/home/kevin" })).toBe("/home/kevin/.config/homepanel/agent.yaml");
     expect(defaultConfigPath("linux", { HOME: "/home/kevin", XDG_CONFIG_HOME: "/cfg" })).toBe("/cfg/homepanel/agent.yaml");
   });
 
-  it("resolution order: --config > env > next to the program > default", () => {
+  it.skipIf(process.platform === "win32")("resolution order: --config > env > next to the program > default", () => {
     const env = { HOME: "/home/k" };
     expect(resolveConfigPath("/x/a.yaml", { env })).toBe("/x/a.yaml");
     expect(resolveConfigPath(undefined, { env: { ...env, HOMEPANEL_AGENT_CONFIG: "/e.yaml" } })).toBe("/e.yaml");

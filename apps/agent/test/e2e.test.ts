@@ -69,7 +69,11 @@ const noResultFor = async (id: string, ms = 600) => {
   return !(seen.get(topics.cmdResult(PC)) ?? []).some((m) => (JSON.parse(m.payload) as AgentCommandResult).id === id);
 };
 
+// Spawns the agent under tsx; covered on Linux CI, and on Windows by the exe smoke test.
+const skipE2E = process.platform === "win32";
+
 beforeAll(async () => {
+  if (skipE2E) return;
   broker = await Aedes.createBroker();
   server = createServer(broker.handle);
   await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
@@ -112,6 +116,7 @@ actions:
 }, 30_000);
 
 afterAll(async () => {
+  if (skipE2E) return;
   if (agent && agent.exitCode === null) {
     agent.kill("SIGTERM");
     await new Promise((r) => agent.once("exit", r));
@@ -122,7 +127,7 @@ afterAll(async () => {
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
-describe("agent end-to-end over MQTT (--mock)", () => {
+describe.skipIf(skipE2E)("agent end-to-end over MQTT (--mock)", () => {
   it("publishes status online (retained)", async () => {
     const m = await waitFor("status", () => last(topics.status(PC)));
     expect(m.payload).toBe("online");

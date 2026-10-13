@@ -40,7 +40,8 @@ export function memoryOut(): Out & { text(): string } {
     err: (t) => lines.push(`ERR ${t}`),
     code: (t) => lines.push(t.split("\n").map((l) => "    " + l).join("\n")),
     steps: (items) => items.forEach((s, i) => lines.push(`  ${i + 1}. ${s}`)),
-    text: () => lines.join("\n"),
+    // without colour codes (picocolors turns colour on when CI is set)
+    text: () => lines.join("\n").replace(/\x1b\[[0-9;]*m/g, ""),
   };
   return o;
 }
