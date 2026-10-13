@@ -28,7 +28,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -r build
-      - run: pnpm -r test
+      - run: node .github/scripts/run-tests.mjs
 
   windows-exe:
     name: Build HomePanel-Setup.exe (Windows)
@@ -52,7 +52,7 @@ jobs:
       - name: Build all packages
         run: pnpm -r build
       - name: Test all packages
-        run: pnpm -r test
+        run: node .github/scripts/run-tests.mjs
 
       - name: Build single executable
         run: node apps/desktop/scripts/build-sea.mjs --out $env:EXE
