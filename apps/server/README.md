@@ -17,7 +17,7 @@ MQTT_USER=homepanel MQTT_PASS=... ADMIN_PASSWORD=... pnpm --filter @homepanel/se
 ### Demo (no Home Assistant, no MQTT)
 
 ```bash
-pnpm --filter @homepanel/server demo     # builds, then DEMO=1 DATA_DIR=./.demo-data (wiped and re-created every start)
+pnpm --filter @homepanel/server demo     # builds, then runs with --demo, data in ./.demo-data (wiped and re-created every start)
 ```
 
 - Screens: `http://localhost:8080/?token=demo` (desk-monitor), `?token=ipad` → kitchen-ipad, `?token=fire` → fire-hd8 (lite)
