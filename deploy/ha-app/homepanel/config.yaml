@@ -2,7 +2,7 @@ name: HomePanel
 version: "0.1.0"
 slug: homepanel
 description: Dashboard server for wall tablets and screens (PC temps, doorbell pop-ups, lights, buttons)
-url: https://github.com/homepanel/homepanel
+url: https://github.com/theCommitWhisperer/homepanel
 arch:
   - amd64
   - aarch64

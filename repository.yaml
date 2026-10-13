@@ -1,0 +1,6 @@
+# Home Assistant app (add-on) repository: add this repo's URL in
+# HA → Settings → Apps → App store → ⋮ → Repositories, then install "HomePanel".
+# The app itself lives in deploy/ha-app/homepanel/.
+name: HomePanel
+url: https://github.com/theCommitWhisperer/homepanel
+maintainer: Kevin

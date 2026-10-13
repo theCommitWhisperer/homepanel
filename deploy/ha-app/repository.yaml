@@ -1,7 +1,0 @@
-# Home Assistant app (add-on) repository for HomePanel.
-# Home Assistant expects this file at the ROOT of a git repository. Publish the contents of
-# deploy/ha-app/ as its own repository (e.g. github.com/homepanel/homepanel-ha-app) and add that URL
-# in HA → Settings → Apps → App store → ⋮ → Repositories.
-name: HomePanel
-url: https://github.com/homepanel/homepanel
-maintainer: HomePanel contributors

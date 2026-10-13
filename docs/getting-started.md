@@ -66,8 +66,8 @@ PC agents send their data to HomePanel over MQTT.
 
 ## 5. The HomePanel app (~10 min, mostly building)
 
-1. HA → **Settings → Apps → App store → ⋮ → Repositories**. Add the HomePanel app repository URL
-   (the contents of [`deploy/ha-app`](../deploy/ha-app), published as its own git repository).
+1. HA → **Settings → Apps → App store → ⋮ → Repositories**. Add the HomePanel app repository URL:
+   `https://github.com/theCommitWhisperer/homepanel`
 2. Find **HomePanel** in the store, click **Install**, and wait. The first install builds from source and takes a few minutes on the N100.
 3. On the **Configuration** tab, set `admin_password`. Optionally fill in the AI fields too.
 4. On the **Info** tab, turn on *Start on boot* and *Watchdog*, then click **Start**.

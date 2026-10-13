@@ -16,16 +16,15 @@ export const HAOS_IMAGES = {
 };
 
 /**
- * Git URL of the HomePanel Home Assistant app (add-on) repository. HA needs repository.yaml at the
- * repo root, so deploy/ha-app is published as its own repo (placeholder URL until it exists —
- * override with HOMEPANEL_APP_REPO).
+ * Git URL of the HomePanel Home Assistant app (add-on) repository: the main repo itself, which has
+ * repository.yaml at its root (HA finds deploy/ha-app/homepanel/config.yaml). Override with HOMEPANEL_APP_REPO.
  */
-export const HOMEPANEL_APP_REPO = process.env.HOMEPANEL_APP_REPO ?? "https://github.com/homepanel/homepanel-ha-app";
+export const HOMEPANEL_APP_REPO = process.env.HOMEPANEL_APP_REPO ?? "https://github.com/theCommitWhisperer/homepanel";
 /** Slug HA gives a third-party app: <first 8 hex of sha1(repo url)>_homepanel; we look it up instead of guessing. */
 export const HOMEPANEL_APP_SLUG_SUFFIX = "_homepanel";
 /** Where the compose file can be downloaded if the installer runs outside a repo checkout. */
 export const HOMEPANEL_RAW_BASE =
-  process.env.HOMEPANEL_RAW_BASE ?? "https://raw.githubusercontent.com/homepanel/homepanel/main";
+  process.env.HOMEPANEL_RAW_BASE ?? "https://raw.githubusercontent.com/theCommitWhisperer/homepanel/main";
 
 export const HA_PORT = 8123;
 export const SERVER_PORT = 8080;
@@ -39,4 +38,4 @@ export const TAILSCALE_SLUG = "a0d7b954_tailscale";
 export const MQTT_HA_USERNAME = "homepanel";
 export const MIN_DOCKER_ENGINE = 23;
 
-export const DOCS_URL = "https://github.com/homepanel/homepanel/tree/main/docs";
+export const DOCS_URL = "https://github.com/theCommitWhisperer/homepanel/tree/main/docs";

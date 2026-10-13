@@ -115,7 +115,7 @@ export async function chatCompletion(
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (p.apiKey) headers.authorization = `Bearer ${p.apiKey}`;
   if (p.id === "openrouter") {
-    headers["HTTP-Referer"] = "https://github.com/homepanel/homepanel";
+    headers["HTTP-Referer"] = "https://github.com/theCommitWhisperer/homepanel";
     headers["X-Title"] = "HomePanel";
   }
 

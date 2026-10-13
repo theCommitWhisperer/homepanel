@@ -13,7 +13,7 @@
 # instead of cloning.
 ARG BUILD_FROM
 FROM ${BUILD_FROM} AS build
-ARG HOMEPANEL_GIT=https://github.com/homepanel/homepanel
+ARG HOMEPANEL_GIT=https://github.com/theCommitWhisperer/homepanel
 ARG HOMEPANEL_REF=main
 RUN apk add --no-cache nodejs npm git \
  && npm install -g pnpm@10

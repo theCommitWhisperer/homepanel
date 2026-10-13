@@ -18,7 +18,7 @@
 # or change ExecStart to the node from nvm / your distro).
 [Unit]
 Description=HomePanel PC agent
-Documentation=https://github.com/homepanel/homepanel/tree/main/apps/agent
+Documentation=https://github.com/theCommitWhisperer/homepanel/tree/main/apps/agent
 After=network-online.target graphical-session.target
 Wants=network-online.target
 
