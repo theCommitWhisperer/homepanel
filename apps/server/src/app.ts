@@ -22,6 +22,7 @@ import { demoRoutes } from "./routes/demo.js";
 import { healthRoutes } from "./routes/health.js";
 import { kioskRoutes } from "./routes/kiosk.js";
 import { agentDownloadRoutes } from "./routes/agentDownload.js";
+import { downloadRoutes } from "./routes/download.js";
 import { mediaRoutes } from "./routes/media.js";
 import { pairingRoutes } from "./routes/pairing.js";
 import { wsRoutes } from "./routes/ws.js";
@@ -183,6 +184,7 @@ export async function buildApp(opts: AppOptions): Promise<HomePanel> {
   if (env.demo) await demoRoutes(app, ctx);
   await wsRoutes(app, ctx);
   await agentDownloadRoutes(app, ctx);
+  await downloadRoutes(app, ctx);
   await kioskRoutes(app, ctx);
 
   /* ---------------- lifecycle ---------------- */

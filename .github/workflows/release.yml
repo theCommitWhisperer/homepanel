@@ -1,0 +1,135 @@
+name: HomePanel-Setup.exe
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write # gh release create on tags
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test-linux:
+    name: Tests (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r build
+      - run: pnpm -r test
+
+  windows-exe:
+    name: Build HomePanel-Setup.exe (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      EXE: apps/desktop/dist/HomePanel-Setup.exe
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Build all packages
+        run: pnpm -r build
+      - name: Test all packages
+        run: pnpm -r test
+
+      - name: Build single executable
+        run: node apps/desktop/scripts/build-sea.mjs --out $env:EXE
+
+      - name: Smoke test
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path $env:EXE).Path
+          $work = Join-Path $env:RUNNER_TEMP 'hp-smoke'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          Set-Location $work
+
+          $v = & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "--version failed" }
+          Write-Host "version: $v"
+
+          & $exe agent list-sensors --mock
+          if ($LASTEXITCODE -ne 0) { throw "agent list-sensors --mock failed" }
+
+          & $exe setup --help
+          if ($LASTEXITCODE -ne 0) { throw "setup --help failed" }
+
+          $p = Start-Process -FilePath $exe -ArgumentList 'server','--demo' -PassThru -NoNewWindow `
+            -RedirectStandardOutput server.log -RedirectStandardError server.err
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+              Start-Sleep -Seconds 1
+              try { $h = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8080/api/health; $ok = $h.StatusCode -eq 200 } catch { }
+            }
+            if (-not $ok) { throw "server did not answer /api/health" }
+            Write-Host "health: $($h.Content)"
+            $k = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8080/
+            if ($k.Content -notmatch '<title>HomePanel') { throw "kiosk index not served" }
+            $a = Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8080/agent/install.ps1
+            if ($a.StatusCode -ne 200) { throw "agent bootstrap not served" }
+            Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8080/download/HomePanel.exe -OutFile dl.exe
+            if ((Get-Item dl.exe).Length -ne (Get-Item $exe).Length) { throw "/download/HomePanel.exe size mismatch" }
+            Write-Host "server smoke test OK"
+          } finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            Get-Content server.log -Tail 20 -ErrorAction SilentlyContinue
+            Get-Content server.err -Tail 20 -ErrorAction SilentlyContinue
+          }
+
+      - name: Checksum
+        if: always()
+        run: |
+          if (Test-Path $env:EXE) {
+            $h = (Get-FileHash $env:EXE -Algorithm SHA256).Hash.ToLower()
+            "$h  HomePanel-Setup.exe" | Out-File -Encoding ascii "$env:EXE.sha256"
+            Write-Host "SHA256 $h  size $((Get-Item $env:EXE).Length)"
+          }
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HomePanel-Setup
+          path: |
+            apps/desktop/dist/HomePanel-Setup.exe
+            apps/desktop/dist/HomePanel-Setup.exe.sha256
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = @"
+          **Install:** download ``HomePanel-Setup.exe`` below and double-click it. The setup wizard installs and connects everything (it uses winget for Mosquitto and LibreHardwareMonitor).
+
+          The exe is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info -> Run anyway**.
+
+          One program does it all: ``HomePanel.exe setup``, ``HomePanel.exe server``, ``HomePanel.exe agent <command>``. Try it without hardware: ``HomePanel-Setup.exe server --demo`` then open http://localhost:8080/?token=demo
+
+          SHA256: $(Get-Content "$env:EXE.sha256")
+          "@
+          gh release create $env:GITHUB_REF_NAME $env:EXE "$env:EXE.sha256" --title "HomePanel $env:GITHUB_REF_NAME" --notes $notes

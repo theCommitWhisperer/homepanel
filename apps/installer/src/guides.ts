@@ -15,6 +15,12 @@ export const HOST_TYPES: { value: HostType; name: string; description: string; d
     doc: "hosts.md#x86-mini-pc",
   },
   {
+    value: "proxmox",
+    name: "Mini PC running Proxmox VE (ACEMAGICIAN T8 Plus → HA OS virtual machine)",
+    description: "Keep Proxmox and run Home Assistant OS as a VM, created by the community helper script.",
+    doc: "hosts.md#proxmox-ve",
+  },
+  {
     value: "raspberry-pi",
     name: "Raspberry Pi 4 / 5",
     description: "Home Assistant OS on an SSD (recommended) or a good SD card.",
@@ -122,6 +128,23 @@ export const PROXMOX_GUIDE = (): string[] => [
   "Unraid/TrueNAS: create a VM with the qcow2 disk, UEFI, bridged network.",
   "USB sticks (ZBT-1): pass the USB device through to the VM.",
   "Reserve the VM's IP in your router, then open http://<vm-ip>:8123.",
+];
+
+/** Command of the community "Home Assistant OS VM" helper (community-scripts.org/scripts/haos-vm). Checked October 2026. */
+export const PROXMOX_HAOS_SCRIPT_URL = "https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/vm/haos-vm.sh";
+export const PROXMOX_HAOS_COMMAND = `bash -c "$(curl -fsSL ${PROXMOX_HAOS_SCRIPT_URL})"`;
+/** Home Assistant Connect ZBT-1 (Silicon Labs CP2102N) USB vendor:product id */
+export const ZBT1_USB_ID = "10c4:ea60";
+
+export const PROXMOX_HAOS_GUIDE = (): string[] => [
+  "On any computer, open the Proxmox web UI: https://<proxmox-ip>:8006 (accept the certificate warning) and log in as root.",
+  "Click your node (left, e.g. 'pve') → Shell. The next command runs THERE, on the Proxmox host — not on this PC.",
+  `Paste this and press Enter (it is the community-scripts.org "Home Assistant OS VM" helper; read it first at ${PROXMOX_HAOS_SCRIPT_URL} if you like):`,
+  "Answer 'Yes' to 'Use Default Settings?' → it downloads the latest stable HA OS image and creates a VM 'haos…' with UEFI, 2 vCPU, 4 GB RAM, a 32 GB disk on bridge vmbr0, starting at boot. The N100 handles this easily.",
+  `ZBT-1 Zigbee stick: plug it into the mini PC with a USB extension cable (0.5–1 m, USB 2 port if there is one). Proxmox → the HA VM → Hardware → Add → USB Device → 'Use USB Vendor/Device ID' → pick the one with ${ZBT1_USB_ID} (Silicon Labs CP210x / Home Assistant Connect ZBT-1) → Add. Same thing in the Proxmox shell: qm set <vmid> -usb0 host=${ZBT1_USB_ID}`,
+  "Restart the VM (VM → Reboot) so it sees the stick. Using the vendor/device id (not the port) keeps working if you move the stick to another port.",
+  "Find the VM's address: VM → Summary → IPs (HA OS ships the guest agent), or the VM console shows it after boot. In your router, reserve that IP for the VM's MAC (VM → Hardware → Network Device).",
+  "First boot takes 5–20 minutes. Then open http://<vm-ip>:8123 — this installer continues from there (onboarding, MQTT, token, ZBT-1).",
 ];
 
 export const VBOX_GUIDE = (): string[] => [

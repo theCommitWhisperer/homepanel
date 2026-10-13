@@ -237,20 +237,41 @@ Finally, in HA add the **MQTT** integration with broker `127.0.0.1`, port `1883`
 Running **HA OS in a VM** gives you the full HA experience, apps included, on hardware you already run 24/7.
 Give it **2 vCPU, 4 GB RAM, 32 GB disk**, **UEFI (OVMF)** firmware, and a **bridged** network.
 
+<a id="proxmox-ve"></a>
+
 ### Proxmox VE
+
+This is the plan for the **ACEMAGICIAN T8 Plus**: Proxmox VE on the mini PC, Home Assistant OS as a VM on it.
+`HomePanel.exe` → *Set up Home Assistant / mini PC* → **Mini PC running Proxmox VE** prints these steps and then
+continues with onboarding once HA answers.
+
+**Fast way — the community helper script** (community-scripts.org, "Home Assistant OS VM"). It runs as root on the
+Proxmox host, so read it first: <https://github.com/community-scripts/ProxmoxVE/blob/main/vm/haos-vm.sh>.
+
+1. Open the Proxmox web UI (`https://<proxmox-ip>:8006`), click your node (e.g. `pve`) → **Shell**.
+   The command below runs **there, on the Proxmox host** — not on your Windows PC.
+2. Paste:
+   ```bash
+   bash -c "$(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/vm/haos-vm.sh)"
+   ```
+3. Answer **Yes** to *Use Default Settings?*. It downloads the current stable HA OS image and creates a VM with UEFI,
+   2 vCPU, 4 GB RAM, a 32 GB disk on bridge `vmbr0`, the QEMU guest agent on, and *start at boot* on.
+4. After 5–20 minutes, open `http://<vm-ip>:8123` (the VM's *Summary* shows its IP). Reserve that IP in your router.
+
+**By hand** (same result, no script):
 
 1. Download `haos_ova-<version>.qcow2.xz` from the
    [HA OS releases](https://github.com/home-assistant/operating-system/releases) and run `unxz` on it.
 2. Create a VM: *OS: Do not use any media*, *System: Machine q35, BIOS OVMF (UEFI)*, add an EFI disk, and
    **untick "Pre-Enroll keys"** so Secure Boot stays off. Delete the default disk. 2 cores, 4096 MB, bridge `vmbr0`.
 3. Import the disk: `qm importdisk <vmid> haos_ova-<version>.qcow2 local-lvm`. In *Hardware*, attach the unused disk
-   (SCSI or SATA), then set it first in *Options → Boot Order*.
+   (SCSI or SATA), then set it first in *Options → Boot Order*. *Options → Start at boot: Yes*.
 4. Start the VM. After 5–20 minutes, open `http://<vm-ip>:8123`.
 
-The community **"Home Assistant OS VM"** helper script (community-scripts.github.io/ProxmoxVE) automates all of this. It
-is popular, but it's a third-party script that runs as root, so read it before running it.
-
-**ZBT-1:** in the VM's *Hardware → Add → USB Device*, choose *Use USB Vendor/Device ID* and pick the ZBT-1.
+**ZBT-1 passthrough:** plug the stick into the mini PC with a USB extension cable. VM → *Hardware → Add → USB Device* →
+*Use USB Vendor/Device ID* → pick **10c4:ea60** (Silicon Labs CP210x / Home Assistant Connect ZBT-1) → *Add*, then
+reboot the VM. Shell equivalent: `qm set <vmid> -usb0 host=10c4:ea60`. Passing it by ID (not by port) survives moving
+the stick to another port.
 
 ### Synology (DSM 7, Virtual Machine Manager)
 
@@ -265,8 +286,8 @@ Create a VM with UEFI firmware, attach the `qcow2` as the boot disk (VirtIO or S
 
 ### HomePanel
 
-Once HA is running, everything is the same as on a mini PC: run `homepanel setup` from any computer on your network, or follow the
-[getting-started](getting-started.md) from step 2.
+Once HA is running, everything is the same as on a mini PC: run `HomePanel.exe` (mode 3) from any computer on your network, or follow the
+[getting-started](getting-started.md) appendix from step 2.
 
 > Running **HA Container** in Docker on the NAS also works (see [linux-docker.md](#linux-docker)), but Synology's
 > Container Manager is a Docker *Engine*, and HA's discovery needs `network_mode: host`. Some NAS UIs hide that option.

@@ -1,12 +1,16 @@
 {
   "name": "@homepanel/installer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "homepanel setup / homepanel doctor — guided HomePanel + Home Assistant setup, optionally driven by a free AI guide",
-  "bin": { "homepanel": "dist/cli.js" },
+  "description": "homepanel setup / homepanel doctor \u2014 guided HomePanel + Home Assistant setup, optionally driven by a free AI guide",
+  "bin": {
+    "homepanel": "dist/cli.js"
+  },
   "main": "dist/cli.js",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json && node -e \"require('fs').chmodSync('dist/cli.js',0o755)\"",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
@@ -17,6 +21,7 @@
     "@homepanel/ai": "workspace:*",
     "@homepanel/protocol": "workspace:*",
     "@inquirer/prompts": "^8.7.3",
+    "mqtt": "^5.16.0",
     "multicast-dns": "^7.2.5",
     "picocolors": "^1.1.1",
     "ws": "^8.18.0",

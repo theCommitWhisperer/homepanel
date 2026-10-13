@@ -4,7 +4,36 @@ Dashboards for every screen in the house, powered by Home Assistant. One web app
 on tablets and monitors; a small agent on each PC streams its temperatures and runs the buttons you
 define; a setup wizard (with an optional AI guide) installs and connects everything.
 
-## See it in 2 minutes (no hardware needed)
+## Install (Windows 11)
+
+1. Download **`HomePanel-Setup.exe`** from the
+   [latest release](https://github.com/theCommitWhisperer/homepanel/releases/latest).
+2. Double-click it. The exe isn't code-signed yet, so Windows SmartScreen may say
+   "Windows protected your PC": click **More info → Run anyway**, then allow the admin prompt.
+3. Answer the wizard's questions. Pick **Host on this PC** for the fastest setup (server, MQTT broker
+   and this PC's agent, all local; it installs Mosquitto and LibreHardwareMonitor with winget after
+   showing you exactly what it will do), or **Join this PC to my HomePanel** on your other PCs.
+4. On each screen (iPad, Fire tablet, monitor), open `http://<that-pc>:8080`, then approve its
+   6-digit code in **Admin → Screens**.
+
+No Node, pnpm or git needed: everything is inside the one exe. It also runs by hand:
+
+| Command | What |
+| --- | --- |
+| `HomePanel-Setup.exe server --demo` | Try it with fake devices, then open http://localhost:8080/?token=demo (admin password `demo`) |
+| `HomePanel.exe setup` | Run the wizard again (the installer copies itself to `C:\Program Files\HomePanel\HomePanel.exe`) |
+| `HomePanel.exe agent list-sensors` | Show this PC's temperatures |
+| `HomePanel.exe --help` | Everything else |
+
+Other PCs on your network can download the same exe from the server at
+`http://<server>:8080/download/HomePanel.exe`.
+
+Guides: [getting started](docs/getting-started.md) · [hosts](docs/hosts.md) ·
+[screens (iPad, Fire HD 8)](docs/screens.md) · [PC agent](docs/pc-agent.md) · [doorbells](docs/doorbells.md) ·
+[Zigbee ZBT-1](docs/zigbee-zbt1.md) · [remote access](docs/remote-access.md) ·
+[AI assistant](docs/ai-assistant.md) · [widgets & profiles](docs/widgets.md).
+
+## Developers: run from source
 
 Requires Node 22 and pnpm (`npm i -g pnpm`).
 
@@ -25,20 +54,20 @@ Then open, on the same machine:
 
 Ring the fake doorbell: `curl -X POST http://localhost:8080/api/demo/ring`.
 
-## Set it up for real
+Home Assistant OS on a mini PC instead (the ACEMAGICIAN T8 Plus path): follow
+[docs/getting-started.md](docs/getting-started.md), or run `pnpm --filter @homepanel/installer start setup`
+(add `--ai` for the AI guide) from any computer on the network. Windows PCs without the exe can still
+use `irm http://<server>:8080/agent/install.ps1 | iex` in an admin PowerShell.
 
-Follow **[docs/getting-started.md](docs/getting-started.md)**: the ACEMAGICIAN T8 Plus path, end to end.
-Other guides: [hosts](docs/hosts.md) · [screens (iPad, Fire HD 8)](docs/screens.md) ·
-[PC agent](docs/pc-agent.md) · [doorbells](docs/doorbells.md) · [Zigbee ZBT-1](docs/zigbee-zbt1.md) ·
-[remote access](docs/remote-access.md) · [AI assistant](docs/ai-assistant.md) · [widgets & profiles](docs/widgets.md).
+Build the exe yourself (on Windows for a `.exe`; Linux/macOS build a native binary the same way):
 
-Short version:
+```bash
+pnpm install && pnpm -r build
+pnpm --filter @homepanel/desktop sea      # → apps/desktop/dist/HomePanel(.exe)
+```
 
-1. Install Home Assistant OS on the mini PC, then run `pnpm --filter @homepanel/installer start setup`
-   (add `--ai` for the AI guide) from any computer on the network. It onboards HA, sets up MQTT and
-   the ZBT-1, mints the token and installs the HomePanel app.
-2. On each PC, open PowerShell as administrator: `irm http://<mini-pc>:8080/agent/install.ps1 | iex`.
-3. On each screen, open `http://<mini-pc>:8080`, then approve its 6-digit code in **Admin → Screens**.
+Without packaging, the same bundle runs with plain Node: `node apps/desktop/dist/homepanel.cjs server --demo`.
+Pushes to `main` build `HomePanel-Setup.exe` in GitHub Actions (artifact); tags `v*` publish a release.
 
 ## What's in here
 
@@ -48,11 +77,12 @@ Short version:
 | `apps/kiosk` | The screen app (React PWA) and the admin UI |
 | `apps/agent` | Windows/Linux PC agent: LibreHardwareMonitor sensors, drives, allowlisted actions |
 | `apps/installer` | `homepanel setup` wizard + AI setup guide |
+| `apps/desktop` | `HomePanel.exe`: server, agent and wizard in one Node single executable |
 | `packages/protocol` | Shared message, topic and profile contract |
 | `packages/ai` | OpenAI-compatible assistant: Gemini, Groq, OpenRouter, Ollama, LM Studio |
 | `deploy/` | Home Assistant app (add-on), Docker image, compose file |
 
-`pnpm test` runs 237 tests across all packages.
+`pnpm test` runs about 250 tests across all packages.
 
 ## Security model in one paragraph
 

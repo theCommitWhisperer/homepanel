@@ -40,6 +40,7 @@ export function stepsFor(host: HostType | undefined): Step[] {
         return ["host", "onboard", "token", "mqtt", "server", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
       case "vm-windows":
       case "nas-proxmox":
+      case "proxmox":
       case "x86-bare-metal":
       case "raspberry-pi":
       case "ha-green":

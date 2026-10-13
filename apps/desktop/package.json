@@ -1,0 +1,29 @@
+{
+  "name": "@homepanel/desktop",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "HomePanel.exe: server, PC agent and setup wizard in one Node single executable application",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node scripts/bundle.mjs",
+    "sea": "node scripts/build-sea.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "start": "node dist/homepanel.cjs"
+  },
+  "devDependencies": {
+    "@homepanel/agent": "workspace:*",
+    "@homepanel/ai": "workspace:*",
+    "@homepanel/installer": "workspace:*",
+    "@homepanel/kiosk": "workspace:*",
+    "@homepanel/protocol": "workspace:*",
+    "@homepanel/server": "workspace:*",
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "postject": "1.0.0-alpha.6",
+    "rcedit": "^4.0.1",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

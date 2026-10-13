@@ -2,7 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSy
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
-export type HostType = "x86-bare-metal" | "raspberry-pi" | "ha-green" | "linux-docker" | "nas-proxmox" | "vm-windows";
+export type HostType = "x86-bare-metal" | "proxmox" | "raspberry-pi" | "ha-green" | "linux-docker" | "nas-proxmox" | "vm-windows";
 
 export type StepStatus = "done" | "skipped" | "failed" | "manual";
 
@@ -25,7 +25,23 @@ export interface SetupState {
   doorbells?: string[];
   /** AI guide provider choice (key lives in secrets.extra.ai_api_key) */
   ai?: { provider: string; model?: string; baseUrl?: string };
+  /** "Host on this PC" / "Join this PC" (local flows) */
+  local?: LocalState;
   steps: Record<string, { status: StepStatus; at: string; note?: string }>;
+}
+
+export interface LocalState {
+  mode?: "host" | "join";
+  /** HomePanel server this PC talks to, e.g. http://127.0.0.1:8080 (host) or http://192.168.1.20:8080 (join) */
+  serverUrl?: string;
+  /** MQTT broker host for this PC's agent */
+  mqttHost?: string;
+  mqttUser?: string;
+  pcId?: string;
+  pcName?: string;
+  lhmExe?: string;
+  mosquittoDir?: string;
+  browserPaired?: boolean;
 }
 
 /** Secrets live in their own 0600 file, never in setup-state.json. */
@@ -35,6 +51,10 @@ export interface SecretsFile {
   haAccessToken?: string;
   mqttPassword?: string;
   adminPassword?: string;
+  /** this PC's agent signing key (local flows) */
+  agentKey?: string;
+  /** device token of this PC's browser (local host flow) */
+  deviceToken?: string;
   /** values collected with ask_secret, by label */
   extra?: Record<string, string>;
 }
@@ -69,6 +89,10 @@ export class StateStore {
     this.state = readJson<SetupState>(this.statePath) ?? { version: 1, steps: {} };
     if (!this.state.steps) this.state.steps = {};
     this.secrets = readJson<SecretsFile>(this.secretsPath) ?? {};
+  }
+
+  updateLocal(patch: Partial<LocalState>) {
+    this.update({ local: { ...(this.state.local ?? {}), ...patch } });
   }
 
   update(patch: Partial<SetupState>) {

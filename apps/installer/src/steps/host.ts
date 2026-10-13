@@ -9,6 +9,8 @@ import {
   HOST_TYPES,
   PI_GUIDE,
   PROXMOX_GUIDE,
+  PROXMOX_HAOS_COMMAND,
+  PROXMOX_HAOS_GUIDE,
   VBOX_GUIDE,
   X86_GUIDE,
   hostDoc,
@@ -323,6 +325,12 @@ export function printHostGuide(ctx: StepContext, t: HostType) {
   } else if (t === "raspberry-pi") out.steps(PI_GUIDE());
   else if (t === "ha-green") out.steps(GREEN_GUIDE());
   else if (t === "nas-proxmox") out.steps(PROXMOX_GUIDE());
+  else if (t === "proxmox") {
+    const g = PROXMOX_HAOS_GUIDE();
+    out.steps(g.slice(0, 3));
+    out.code(PROXMOX_HAOS_COMMAND);
+    out.steps(g.slice(3));
+  }
   out.info(`Full guide: docs/${hostDoc(t)}`);
 }
 
@@ -334,6 +342,8 @@ export const hostStep: Step = {
     const t = ctx.store.state.hostType;
     if (t === "linux-docker")
       return "Check Docker Engine ≥ 23 (offer get.docker.com install), write compose.yaml + mosquitto config + .env into a folder you choose, hash the MQTT password and run `docker compose up -d homeassistant mosquitto`. Each command is shown and asked first.";
+    if (t === "proxmox")
+      return `Print the Proxmox guide: run the community "Home Assistant OS VM" script (${PROXMOX_HAOS_COMMAND}) in the Proxmox host shell, pass the ZBT-1 through, then wait for HA. Nothing on this computer is changed.`;
     if (t === "vm-windows")
       return `Download HA OS ${HAOS_VERSION} .vdi (asks first), then run VBoxManage createvm/modifyvm (EFI, 4 GB, 2 CPU, bridged NIC)/storageattach/startvm (shown and asked first).`;
     return "Print the install guide for your hardware. Nothing on this computer is changed.";

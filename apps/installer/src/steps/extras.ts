@@ -46,8 +46,8 @@ export const zigbeeStep: Step = {
     if (d.done) return "done";
     out.steps([
       "Plug the ZBT-1 into a USB 2 port if you have one, using a USB extension cable so the stick sits 0.5–1 m away from the computer.",
-      ctx.store.state.hostType === "vm-windows" || ctx.store.state.hostType === "nas-proxmox"
-        ? "VM: pass the USB device through to the Home Assistant VM first."
+      ctx.store.state.hostType === "vm-windows" || ctx.store.state.hostType === "nas-proxmox" || ctx.store.state.hostType === "proxmox"
+        ? "VM: pass the USB device through to the Home Assistant VM first (Proxmox: VM → Hardware → Add → USB Device → Vendor/Device ID 10c4:ea60), then reboot the VM."
         : "Wait ~30 s. HA → Settings → Devices & services shows 'Discovered: Home Assistant Connect ZBT-1'.",
       "Click Add → when asked, choose 'Zigbee' (HA flashes Zigbee firmware if needed and sets up ZHA) → Submit.",
       "Pair devices: Settings → Devices & services → Zigbee Home Automation → Add device, then put the bulb/sensor in pairing mode.",
