@@ -360,11 +360,13 @@ export const hostStep: Step = {
     "Container with Docker Engine (no apps; Docker Desktop is not supported). A Windows-only household can run HA OS in VirtualBox.",
   async detect(ctx) {
     const t = ctx.store.state.hostType;
-    if (!t) return { done: false, detail: "Host type not chosen yet." };
+    // Home Assistant already found and answering: there is nothing to install, whatever it runs on.
     if (ctx.store.state.haUrl) {
       const ok = await new HaClient(ctx.store.state.haUrl, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
-      if (ok.state !== "unreachable") return { done: true, detail: `Host: ${t}; Home Assistant is answering.` };
+      if (ok.state !== "unreachable")
+        return { done: true, detail: `Home Assistant is already running at ${ctx.store.state.haUrl}; nothing to install.` };
     }
+    if (!t) return { done: false, detail: "Host type not chosen yet." };
     return { done: false, detail: `Host: ${t}; Home Assistant not reachable yet.` };
   },
   async run(ctx) {
