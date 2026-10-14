@@ -7,6 +7,8 @@ export interface FakeHa {
   url: string;
   close(): Promise<void>;
   state: {
+    /** serve the HA OS "Preparing Home Assistant" landing page instead of Core */
+    preparing: boolean;
     onboarded: boolean;
     users: { id: string; name: string; username: string; password: string; group_ids: string[] }[];
     onboardingDone: Set<string>;
@@ -31,10 +33,11 @@ async function readBody(req: IncomingMessage): Promise<any> {
   return JSON.parse(raw);
 }
 
-export async function startFakeHa(opts: { onboarded?: boolean; haOs?: boolean } = {}): Promise<FakeHa> {
+export async function startFakeHa(opts: { onboarded?: boolean; haOs?: boolean; preparing?: boolean } = {}): Promise<FakeHa> {
   let n = 0;
   const id = (p: string) => `${p}${++n}`;
   const state: FakeHa["state"] = {
+    preparing: !!opts.preparing,
     onboarded: !!opts.onboarded,
     users: [],
     onboardingDone: new Set(),
@@ -62,7 +65,16 @@ export async function startFakeHa(opts: { onboarded?: boolean; haOs?: boolean } 
     const authed = () => !!auth && (state.accessTokens.has(auth) || state.longLived.some((l) => l.token === auth));
     const p = url.pathname;
 
+    if (state.preparing) {
+      // HA OS landing page (home-assistant/landingpage): 401 on /api/*, 404 elsewhere, Supervisor jobs
+      if (p.startsWith("/api/")) return json(401, { message: "Unauthorized" });
+      if (p === "/supervisor-api/jobs/info")
+        return json(200, { result: "ok", data: { jobs: [{ name: "home_assistant_core_install", done: false, progress: 40, stage: null, child_jobs: [] }] } });
+      res.writeHead(404, { "content-type": "text/plain" });
+      return res.end("Not Found");
+    }
     if (p === "/manifest.json") return json(200, { name: "Home Assistant" });
+    if (p === "/auth/providers") return state.onboarded ? json(200, { providers: [{ name: "Home Assistant Local", type: "homeassistant", id: null }] }) : json(400, { message: "Onboarding not finished", code: "onboarding_required" });
     if (p === "/api/onboarding" && req.method === "GET") {
       if (state.onboarded) return json(404, { message: "Not found" });
       return json(

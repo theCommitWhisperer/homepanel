@@ -191,7 +191,7 @@ function sha256(p: string): string {
 }
 
 /** Stop the task and whatever its wrapper started (Stop-ScheduledTask ends cmd.exe, not always its child). */
-async function stopTaskTree(ctx: LocalCtx, task: string, sub: "server" | "agent") {
+export async function stopTaskTree(ctx: LocalCtx, task: string, sub: "server" | "agent") {
   await ctx.ops.stopTask(task);
   if (!isWin(ctx)) return;
   await ctx.ops.stopProcess({ name: "cmd.exe", commandLike: `*run-${sub}.cmd*` });
@@ -563,7 +563,7 @@ export const mosquittoConfigStep: LocalStep = {
   },
 };
 
-const FW_RULES = [
+export const FW_RULES = [
   { name: "HomePanel-Server-TCP-8080", displayName: "HomePanel server (TCP 8080)", port: SERVER_PORT, profile: "Private" as const },
   { name: "HomePanel-MQTT-TCP-1883", displayName: "HomePanel MQTT broker (TCP 1883)", port: MQTT_PORT, profile: "Private" as const },
 ];
@@ -1019,6 +1019,25 @@ export function hostSteps(platform: NodeJS.Platform): LocalStep[] {
 export function joinSteps(platform: NodeJS.Platform): LocalStep[] {
   if (platform === "win32") return [installExeStep, lhmInstallStep, pawnioStep, lhmConfigStep, sensorsTaskStep, agentConfigStep, agentTaskStep];
   return [agentConfigStep, agentTaskStep];
+}
+
+/** One question up front instead of thirteen: ask per step, or do them all. Returns false = quit. */
+export async function chooseAskMode(ctx: LocalCtx, titles: string[]): Promise<boolean> {
+  ctx.out.line();
+  ctx.out.line("  Steps (each one is checked first and skipped when it's already done):");
+  ctx.out.steps(titles);
+  if (ctx.yes) return true;
+  const how = await ctx.prompt.select<"ask" | "all" | "quit">({
+    message: "How do you want to go?",
+    choices: [
+      { value: "ask", name: "Show me each step and ask before doing it (recommended the first time)" },
+      { value: "all", name: "Do all of them — I've read the list (exact actions are still printed)" },
+      { value: "quit", name: "Not now" },
+    ],
+  });
+  if (how === "quit") return false;
+  if (how === "all") ctx.confirmAll = true;
+  return true;
 }
 
 export interface RunResult {

@@ -19,6 +19,7 @@ import {
 import type { HostType } from "../state.js";
 import { randomPassword, showCmd, type Exec } from "../sys.js";
 import { HaClient } from "../ha/client.js";
+import { setupProxmox } from "../proxmox/setup.js";
 import { saveHaUrl } from "./detect.js";
 import type { Step, StepContext } from "./types.js";
 
@@ -343,7 +344,11 @@ export const hostStep: Step = {
     if (t === "linux-docker")
       return "Check Docker Engine ≥ 23 (offer get.docker.com install), write compose.yaml + mosquitto config + .env into a folder you choose, hash the MQTT password and run `docker compose up -d homeassistant mosquitto`. Each command is shown and asked first.";
     if (t === "proxmox")
-      return `Print the Proxmox guide: run the community "Home Assistant OS VM" script (${PROXMOX_HAOS_COMMAND}) in the Proxmox host shell, pass the ZBT-1 through, then wait for HA. Nothing on this computer is changed.`;
+      return "Automatic (recommended): find the Proxmox host (port 8006 scan or the IP you type), SSH in as root with the password you type " +
+        "locally (never saved or sent to the AI), show the host key and ask to trust it, then on the host: reuse a VM named haos / tagged homepanel " +
+        "or download the latest stable HA OS qcow2 and create VM 'haos' with qm (q35, OVMF, 2 cores, 4 GB, 32 GB disk, vmbr0, start on boot), " +
+        "pass the ZBT-1 (10c4:ea60) through if it is plugged in, start it and read its IP from the guest agent. Each part is shown and asked first. " +
+        `Or the manual guide (community script ${PROXMOX_HAOS_COMMAND}).`;
     if (t === "vm-windows")
       return `Download HA OS ${HAOS_VERSION} .vdi (asks first), then run VBoxManage createvm/modifyvm (EFI, 4 GB, 2 CPU, bridged NIC)/storageattach/startvm (shown and asked first).`;
     return "Print the install guide for your hardware. Nothing on this computer is changed.";
@@ -379,6 +384,20 @@ export const hostStep: Step = {
     }
     if (t === "linux-docker") return setupDocker(ctx);
     if (t === "vm-windows") return setupVbox(ctx);
+    if (t === "proxmox") {
+      const how = await prompt.select<"auto" | "guide">({
+        message: "Proxmox: how do you want to create the Home Assistant OS VM?",
+        choices: [
+          { value: "auto", name: "Do it for me over SSH (recommended)", description: "Needs the Proxmox root password once; shows every command before running it." },
+          { value: "guide", name: "Show me the manual steps (community script in the Proxmox shell)" },
+        ],
+      });
+      if (how === "auto") {
+        const st = await setupProxmox(ctx);
+        if (st === "done" || st === "failed") return st;
+        out.info("No problem — here are the manual steps instead.");
+      }
+    }
     printHostGuide(ctx, t);
     if (!ctx.store.state.haUrl) {
       const addr = await prompt.input({

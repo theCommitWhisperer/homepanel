@@ -242,10 +242,32 @@ Give it **2 vCPU, 4 GB RAM, 32 GB disk**, **UEFI (OVMF)** firmware, and a **brid
 ### Proxmox VE
 
 This is the plan for the **ACEMAGICIAN T8 Plus**: Proxmox VE on the mini PC, Home Assistant OS as a VM on it.
-`HomePanel.exe` → *Set up Home Assistant / mini PC* → **Mini PC running Proxmox VE** prints these steps and then
-continues with onboarding once HA answers.
 
-**Fast way — the community helper script** (community-scripts.org, "Home Assistant OS VM"). It runs as root on the
+**Automatic (recommended) — `HomePanel.exe` does it over SSH.** *Set up Home Assistant / mini PC* → **Mini PC running
+Proxmox VE** → *Do it for me over SSH*:
+
+1. It looks for the Proxmox web UI (port 8006) on your network and offers what it finds (or type the IP, e.g.
+   `192.168.1.251`).
+2. You type the Proxmox **root** password (hidden; used for this one SSH session, never saved or logged).
+3. It shows the host's SSH key fingerprint and asks you to trust it. To compare, run in the Proxmox web UI → node →
+   *Shell*: `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` (or run `HomePanel.exe host-key 192.168.1.251` on the
+   PC). The trusted key is remembered; if it ever changes, setup warns you.
+4. On the host it runs its own short, non-interactive bash (shown before it runs):
+   - `pveversion`; an existing VM named `haos` or tagged `homepanel` (or the community script's `homeassistant`) is
+     offered for reuse — then nothing is created.
+   - otherwise: next free VMID (`pvesh get /cluster/nextid`), storage `local-lvm` (else the first storage that holds
+     disk images), bridge `vmbr0`; downloads the latest stable `haos_ova-<version>.qcow2.xz`, unpacks it and runs
+     `qm create <id> -name haos -tags homepanel -bios ovmf -machine q35 -agent 1 -cores 2 -memory 4096 -cpu host
+     -net0 virtio,bridge=vmbr0 -scsihw virtio-scsi-pci -ostype l26 -onboot 1`, adds the EFI disk, imports the image
+     as `scsi0` (discard, ssd), grows it to 32G, boots from it and deletes the download.
+   - ZBT-1: if `lsusb` shows `10c4:ea60` it runs `qm set <id> -usb0 host=10c4:ea60`; otherwise it tells you.
+   - `qm start`, then asks the QEMU guest agent for the VM's IP (up to 5 minutes) and saves it as your Home Assistant.
+5. It continues straight into onboarding: first boot downloads Home Assistant (~700 MB, 10–20 minutes) and the wizard
+   shows the progress, then creates your account, Mosquitto + MQTT login, the token, ZBT-1/ZHA and the HomePanel app.
+
+Interrupted? Run it again: the VMID is remembered, the download resumes and finished parts are skipped.
+
+**Fast way by hand — the community helper script** (community-scripts.org, "Home Assistant OS VM"). It runs as root on the
 Proxmox host, so read it first: <https://github.com/community-scripts/ProxmoxVE/blob/main/vm/haos-vm.sh>.
 
 1. Open the Proxmox web UI (`https://<proxmox-ip>:8006`), click your node (e.g. `pve`) → **Shell**.

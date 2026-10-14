@@ -9,10 +9,11 @@ import type { Out, Prompter } from "../ui.js";
 import { color } from "../ui.js";
 import { findRepoRoot } from "../context.js";
 import { isSea, runningExe } from "../runtime.js";
-import { ServerApi } from "./api.js";
+import { normalizeServerUrl, ServerApi } from "./api.js";
 import {
   MQTT_USER,
   defaultPaths,
+  chooseAskMode,
   findServers,
   hostSteps,
   joinSteps,
@@ -54,25 +55,6 @@ export function makeLocalCtx(o: {
   };
 }
 
-/** One question up front instead of thirteen: ask per step, or do them all. Returns false = quit. */
-async function chooseAskMode(ctx: LocalCtx, titles: string[]): Promise<boolean> {
-  ctx.out.line();
-  ctx.out.line("  Steps (each one is checked first and skipped when it's already done):");
-  ctx.out.steps(titles);
-  if (ctx.yes) return true;
-  const how = await ctx.prompt.select<"ask" | "all" | "quit">({
-    message: "How do you want to go?",
-    choices: [
-      { value: "ask", name: "Show me each step and ask before doing it (recommended the first time)" },
-      { value: "all", name: "Do all of them — I've read the list (exact actions are still printed)" },
-      { value: "quit", name: "Not now" },
-    ],
-  });
-  if (how === "quit") return false;
-  if (how === "all") ctx.confirmAll = true;
-  return true;
-}
-
 export async function hostFlow(ctx: LocalCtx): Promise<number> {
   const { out } = ctx;
   out.heading("Host HomePanel on this PC");
@@ -88,14 +70,6 @@ export async function hostFlow(ctx: LocalCtx): Promise<number> {
   const res = await runLocalSteps(ctx, steps, "host");
   printSummary(ctx, res, "host");
   return res.code;
-}
-
-function normalizeServerUrl(s: string): string {
-  let u = s.trim();
-  if (!/^https?:\/\//i.test(u)) u = "http://" + u;
-  const url = new URL(u);
-  if (!url.port && url.protocol === "http:") url.port = String(SERVER_PORT);
-  return url.origin;
 }
 
 async function pickServer(ctx: LocalCtx, given?: string): Promise<string | undefined> {
@@ -200,20 +174,4 @@ export async function joinFlow(ctx: LocalCtx, o: { server?: string } = {}): Prom
   return res.code;
 }
 
-export function moveFlow(out: Out): number {
-  out.heading("Move the server to Home Assistant — coming next");
-  out.line(
-    [
-      "  Later the server will live on the mini PC (Home Assistant OS in a Proxmox VM) as the HomePanel app,",
-      "  so dashboards keep working when the gaming PC is off. This mode will copy your layouts, paired",
-      "  screens and PCs over and point this PC's agent at the new broker. It is not built yet.",
-      "",
-      "  What you can do today:",
-      `   1. Run setup → "Set up Home Assistant / mini PC" (choose the Proxmox option) — it installs Mosquitto and the HomePanel app on HA.`,
-      `   2. Copy your layouts: ${color.cyan("%ProgramData%\\HomePanel\\server\\profiles\\*.yaml")} → paste each into the new admin page → Profiles.`,
-      `   3. On each PC run setup → "Join this PC" and pick the Home Assistant address; re-pair tablets with their 6-digit code.`,
-      `   4. Then disable the "HomePanel Server" scheduled task here (Task Scheduler → right-click → Disable).`,
-    ].join("\n"),
-  );
-  return 0;
-}
+export { moveFlow } from "./move.js";

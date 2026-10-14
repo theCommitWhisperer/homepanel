@@ -107,20 +107,30 @@ export async function findHomeAssistant(
   return checked.filter((c) => c.status !== "unreachable" || c.source === "user");
 }
 
-/** Poll until HA answers HTTP (after first boot HA OS can take 5–20 minutes). */
+/**
+ * Poll until Home Assistant Core answers (onboarding page or already set up). On HA OS the first boot
+ * shows a "Preparing Home Assistant" landing page for 10–20 minutes while Core (~700 MB) downloads;
+ * that counts as not ready yet. `onTick` gets the elapsed seconds, the state and (while preparing)
+ * the Supervisor's progress text.
+ */
 export async function waitForHa(
   url: string,
-  opts: { timeoutMs?: number; intervalMs?: number; fetchImpl?: typeof fetch; onTick?: (elapsedS: number) => void } = {},
+  opts: {
+    timeoutMs?: number;
+    intervalMs?: number;
+    fetchImpl?: typeof fetch;
+    onTick?: (elapsedS: number, state: "unreachable" | "preparing", progress?: string) => void;
+  } = {},
 ): Promise<boolean> {
   const client = new HaClient(url, { fetchImpl: opts.fetchImpl });
   const start = Date.now();
   const timeout = opts.timeoutMs ?? 20 * 60_000;
   for (;;) {
     const s = await client.onboardingStatus();
-    if (s.state !== "unreachable") return true;
+    if (s.state === "onboarding" || s.state === "onboarded") return true;
     const elapsed = Date.now() - start;
     if (elapsed > timeout) return false;
-    opts.onTick?.(Math.round(elapsed / 1000));
+    opts.onTick?.(Math.round(elapsed / 1000), s.state, s.state === "preparing" ? await client.preparingProgress() : undefined);
     await new Promise((r) => setTimeout(r, opts.intervalMs ?? 5000));
   }
 }

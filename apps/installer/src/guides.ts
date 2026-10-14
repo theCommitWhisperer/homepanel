@@ -17,7 +17,7 @@ export const HOST_TYPES: { value: HostType; name: string; description: string; d
   {
     value: "proxmox",
     name: "Mini PC running Proxmox VE (ACEMAGICIAN T8 Plus → HA OS virtual machine)",
-    description: "Keep Proxmox and run Home Assistant OS as a VM, created by the community helper script.",
+    description: "Keep Proxmox and run Home Assistant OS as a VM: setup creates it over SSH (or shows the manual steps).",
     doc: "hosts.md#proxmox-ve",
   },
   {

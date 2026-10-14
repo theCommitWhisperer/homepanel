@@ -23,6 +23,7 @@ No Node, pnpm or git needed: everything is inside the one exe. It also runs by h
 | `HomePanel-Setup.exe server --demo` | Try it with fake devices, then open http://localhost:8080/?token=demo (admin password `demo`) |
 | `HomePanel.exe setup` | Run the wizard again (the installer copies itself to `C:\Program Files\HomePanel\HomePanel.exe`) |
 | `HomePanel.exe agent list-sensors` | Show this PC's temperatures |
+| `HomePanel.exe host-key 192.168.1.251` | Show a host's SSH key fingerprint (compare before trusting your Proxmox host) |
 | `HomePanel.exe --help` | Everything else |
 
 Other PCs on your network can download the same exe from the server at
@@ -54,6 +55,10 @@ Then open, on the same machine:
 
 Ring the fake doorbell: `curl -X POST http://localhost:8080/api/demo/ring`.
 
+Later, **3. Set up Home Assistant / mini PC** → *Proxmox* creates the Home Assistant OS VM on your Proxmox host over SSH
+(root password typed once, never saved) and continues into onboarding; **4. Move the server to Home Assistant** then
+hands the gaming PC's server (agent, layouts) to the HomePanel app on HA and retires the local one.
+
 Home Assistant OS on a mini PC instead (the ACEMAGICIAN T8 Plus path): follow
 [docs/getting-started.md](docs/getting-started.md), or run `pnpm --filter @homepanel/installer start setup`
 (add `--ai` for the AI guide) from any computer on the network. Windows PCs without the exe can still
@@ -67,7 +72,8 @@ pnpm --filter @homepanel/desktop sea      # → apps/desktop/dist/HomePanel(.exe
 ```
 
 Without packaging, the same bundle runs with plain Node: `node apps/desktop/dist/homepanel.cjs server --demo`.
-Pushes to `main` build `HomePanel-Setup.exe` in GitHub Actions (artifact); tags `v*` publish a release.
+Pushes to `main` build `HomePanel-Setup.exe` in GitHub Actions (artifact) and publish a release when
+`apps/desktop/package.json` has a new version; CI also builds the Home Assistant app image and checks `/api/health`.
 
 ## What's in here
 

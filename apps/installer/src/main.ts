@@ -10,6 +10,8 @@ import { doctor } from "./doctor.js";
 import { SCREEN_GUIDES } from "./guides.js";
 import { defaultPaths } from "./local/flow.js";
 import { hostFlow, joinFlow, makeLocalCtx, moveFlow } from "./local/modes.js";
+import { hostsServerHere } from "./local/move.js";
+import { serverHealth } from "./steps/server.js";
 import { defaultOps, type WinOps } from "./local/ops.js";
 import { isSea, selfSetupCommand } from "./runtime.js";
 import { homepanelHome, StateStore } from "./state.js";
@@ -19,7 +21,9 @@ import { adminLogin, agentYaml, registerAgent } from "./steps/pcs.js";
 import { color, consoleOut, inquirerPrompter, type Out, type Prompter } from "./ui.js";
 import { plainWizard } from "./wizard.js";
 
-export const VERSION = "0.2.0";
+declare const __HOMEPANEL_VERSION__: string | undefined;
+/** Release version: injected by the HomePanel.exe bundler (apps/desktop/package.json); this fallback for source runs. */
+export const VERSION: string = typeof __HOMEPANEL_VERSION__ === "string" ? __HOMEPANEL_VERSION__ : "0.2.1";
 
 const HELP = `${color.bold("homepanel")} ${VERSION} — set up HomePanel and Home Assistant
 
@@ -29,6 +33,7 @@ Usage:
   homepanel agent-key <pcId> [--name <name>] [--mac <aa:bb:..>]
   homepanel screens [ipad|fire-hd8|android|pi|windows]
   homepanel doctor
+  homepanel host-key <host[:port]>
   homepanel steps
   homepanel --help | --version
 
@@ -37,21 +42,23 @@ setup     Start menu (double-clicking HomePanel.exe does the same):
                   this PC's agent, browser pairing (Windows; Linux: Mosquitto/server/agent via systemd)
             join  Join this PC to a HomePanel server elsewhere (LibreHardwareMonitor + agent)
             ha    Home Assistant / mini PC (bare metal, Proxmox VM, …), the guided HA wizard
-            move  Move the server to Home Assistant (coming next)
+            move  Move the server from this PC to the HomePanel app on Home Assistant (agent,
+                  layouts, then the local server/broker/firewall rules are retired)
           --yes        accept every "do this?" question (exact actions are still printed)
-          --server     server address for join, e.g. 192.168.1.20
+          --server     server address for join / move, e.g. 192.168.1.20
           --reset      forget saved progress (secrets are kept)
           HA wizard only: --step <id>, --redo, --ai, --plain
 agent-key Register a PC with the HomePanel server (admin API) and write its agent.yaml.
 screens   Print setup steps for a screen (iPad, Fire HD 8, Android, Pi, Windows).
 doctor    Check Home Assistant, the token, MQTT, the HomePanel server and PC agents.
+host-key  Show a host's SSH key fingerprint (compare it before trusting the Proxmox host in setup).
 steps     List the Home Assistant wizard steps.
 
 Environment: HOMEPANEL_HOME (HA wizard state, default ~/.homepanel);
              HOMEPANEL_ADMIN_PASSWORD / HOMEPANEL_MQTT_PASSWORD (join without prompts)
 `;
 
-const COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "help", "--help", "-h", "--version", "-v", "version"]);
+const COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "host-key", "help", "--help", "-h", "--version", "-v", "version"]);
 
 function argValue(args: string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -103,7 +110,11 @@ async function startMenu(prompt: Prompter, out: Out): Promise<Mode> {
         name: "3. Set up Home Assistant / mini PC",
         description: "Home Assistant OS on the mini PC (bare metal or a Proxmox VM), onboarding, MQTT, Zigbee ZBT-1, doorbells.",
       },
-      { value: "move", name: "4. Move the server to Home Assistant (coming next)", description: "Not built yet — explains the plan." },
+      {
+        value: "move",
+        name: "4. Move the server to Home Assistant",
+        description: "This PC hosts HomePanel today: hand it over to the HomePanel app on Home Assistant (agent, layouts), then retire the local server.",
+      },
       { value: "doctor", name: "Check everything (doctor)", description: "Reachability of HA, MQTT, the server and PC agents." },
       { value: "quit", name: "Quit" },
     ],
@@ -146,7 +157,7 @@ async function setup(rest: string[], deps: MainDeps, bare: boolean): Promise<num
     out.err(`Unknown mode "${mode}". Use host, join, ha or move.`);
     return 2;
   }
-  const needsAdmin = mode === undefined || mode === "host" || mode === "join";
+  const needsAdmin = mode === undefined || mode === "host" || mode === "join" || mode === "move";
   // Windows: relaunch elevated (UAC) for the start menu and the local modes; the new window does the work.
   if (win && needsAdmin && !rest.includes("--elevated") && !(await ops.isElevated())) {
     out.info("HomePanel setup needs administrator rights (it installs programs and scheduled tasks).");
@@ -169,11 +180,17 @@ async function setup(rest: string[], deps: MainDeps, bare: boolean): Promise<num
         case "doctor":
           code = await doctor(doctorStore(ops), out);
           break;
-        case "ha":
-          return await haWizard(rest, out, prompt);
-        case "move":
-          code = moveFlow(out);
+        case "ha": {
+          code = await haWizard(rest, out, prompt);
+          // Mode 3 finished on a PC that still hosts HomePanel → offer mode 4 right away
+          if (code === 0) code = await offerMove({ out, prompt, ops, yes, rest });
+          return code;
+        }
+        case "move": {
+          const ctx = makeLocalCtx({ out, prompt, yes, ops });
+          code = await moveFlow(ctx, { server: argValue(rest, "--server") });
           break;
+        }
         case "host":
         case "join": {
           if (!win && ops.platform === "linux" && !(await ops.isElevated())) {
@@ -204,6 +221,47 @@ async function setup(rest: string[], deps: MainDeps, bare: boolean): Promise<num
   } finally {
     if (pause) await (deps.pause ?? pressEnter)();
   }
+}
+
+/**
+ * After the Home Assistant wizard: if this PC still runs "Host on this PC" and the HomePanel app on HA
+ * answers, offer "Move the server to Home Assistant" (relaunching elevated on Windows when needed).
+ */
+export async function offerMove(o: {
+  out: Out;
+  prompt: Prompter;
+  ops: WinOps;
+  yes: boolean;
+  rest: string[];
+  haStore?: StateStore;
+  fetchImpl?: typeof fetch;
+  /** for tests: the local flows' context */
+  makeCtx?: (yes: boolean) => ReturnType<typeof makeLocalCtx>;
+}): Promise<number> {
+  const { out, prompt, ops } = o;
+  let hosting: boolean;
+  try {
+    hosting = await hostsServerHere({ store: new StateStore(defaultPaths(ops.platform).setupDir), ops });
+  } catch {
+    hosting = false;
+  }
+  if (!hosting) return 0;
+  const ha = o.haStore ?? new StateStore();
+  const url = ha.state.serverUrl;
+  if (!url || !(await serverHealth(o.fetchImpl ?? globalThis.fetch, url)).ok) return 0;
+  out.line();
+  out.heading("Next: move the server to Home Assistant");
+  out.info(`This PC still runs its own HomePanel server ("Host on this PC"), and the HomePanel app now answers at ${url}.`);
+  if (!(await prompt.confirm({ message: "Move the server to Home Assistant now (this PC's agent, your layouts, then retire the local server)?", default: true })))
+    return 0;
+  const server = ["--server", url];
+  if (ops.platform === "win32" && !o.rest.includes("--elevated") && !(await ops.isElevated())) {
+    out.info("Moving needs administrator rights (scheduled tasks, services, firewall). Windows will ask — click Yes.");
+    const cmd = selfSetupCommand(["--mode", "move", ...server, "--elevated", "--pause"]);
+    return ops.relaunchElevated(cmd.file, cmd.args);
+  }
+  const ctx = o.makeCtx?.(o.yes) ?? makeLocalCtx({ out, prompt, yes: o.yes, ops });
+  return moveFlow(ctx, { server: url, haStore: ha });
 }
 
 export async function main(argv: string[], deps: MainDeps = {}): Promise<number> {
@@ -244,6 +302,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
       return 0;
     }
     if (cmd === "agent-key") return await agentKey(rest, out, deps);
+    if (cmd === "host-key") return await hostKey(rest, out);
     if (cmd === "doctor") return await doctor(doctorStore(deps.ops ?? defaultOps()), out);
     if (cmd === "setup") {
       if (rest.includes("--help") || rest.includes("-h")) {
@@ -282,6 +341,38 @@ function doctorStore(ops: WinOps): StateStore {
     }
   }
   return store;
+}
+
+async function hostKey(rest: string[], out: Out): Promise<number> {
+  const target = rest[0];
+  const m = target ? /^([^:\s]+)(?::(\d+))?$/.exec(target) : null;
+  if (!m) {
+    out.err("Usage: homepanel host-key <host[:port]>   e.g. homepanel host-key 192.168.1.251");
+    return 2;
+  }
+  const { ssh2Connect } = await import("./proxmox/ssh.js");
+  let seen: string | undefined;
+  try {
+    const s = await ssh2Connect({
+      host: m[1]!,
+      port: m[2] ? Number(m[2]) : 22,
+      username: "root",
+      password: "",
+      timeoutMs: 10_000,
+      verifyHostKey: async (k) => {
+        seen = `${k.type} ${k.sha256}`;
+        return false; // only look, never log in
+      },
+    });
+    s.close();
+  } catch (e) {
+    if (!seen) {
+      out.err(`Could not read the SSH host key of ${target}: ${(e as Error).message}`);
+      return 1;
+    }
+  }
+  out.line(`${target} ${seen}`);
+  return 0;
 }
 
 async function agentKey(rest: string[], out: Out, deps: MainDeps): Promise<number> {

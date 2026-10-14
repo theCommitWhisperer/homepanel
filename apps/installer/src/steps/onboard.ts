@@ -91,6 +91,7 @@ export const onboardStep: Step = {
     const s = await new HaClient(ctx.store.state.haUrl, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
     if (s.state === "onboarded") return { done: true, detail: "Home Assistant is already onboarded." };
     if (s.state === "onboarding") return { done: false, detail: "Home Assistant is waiting for onboarding." };
+    if (s.state === "preparing") return { done: false, detail: "Home Assistant OS is still preparing (first boot downloads ~700 MB; 10–20 min)." };
     return { done: false, detail: `Home Assistant is not reachable (${s.error}).` };
   },
   async run(ctx) {
@@ -100,15 +101,21 @@ export const onboardStep: Step = {
       out.err("No Home Assistant address yet — run the 'detect' step first.");
       return "failed";
     }
-    out.info(`Waiting for Home Assistant at ${url} (first boot can take 20 minutes)…`);
-    let last = 0;
+    out.info(`Waiting for Home Assistant at ${url} (first boot downloads ~700 MB and can take 10–20 minutes)…`);
+    let last = -60;
+    let lastState = "";
     const up = await waitForHa(url, {
       fetchImpl: ctx.fetchImpl,
-      timeoutMs: 25 * 60_000,
-      onTick: (s) => {
+      timeoutMs: 30 * 60_000,
+      intervalMs: ctx.noWait ? 1 : 5000,
+      onTick: (s, state, progress) => {
+        if (state !== lastState) {
+          lastState = state;
+          out.info(state === "preparing" ? "Home Assistant OS is preparing (downloading and installing Home Assistant)…" : "Not answering yet (the VM may still be booting)…");
+        }
         if (s - last >= 60) {
           last = s;
-          out.info(`still waiting… ${Math.round(s / 60)} min`);
+          out.info(`still waiting… ${Math.round(s / 60)} min${progress ? ` — ${progress}` : ""}`);
         }
       },
     });

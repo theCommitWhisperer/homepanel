@@ -1,4 +1,5 @@
 import type { HaClient } from "../ha/client.js";
+import type { ProxmoxDeps } from "../proxmox/setup.js";
 import type { SecretVault, StateStore, StepStatus } from "../state.js";
 import type { Exec } from "../sys.js";
 import type { Out, Prompter } from "../ui.js";
@@ -20,6 +21,8 @@ export interface StepContext {
   viaAi?: boolean;
   /** skip cosmetic waits (tests) */
   noWait?: boolean;
+  /** Proxmox automation overrides (tests: fake SSH, no LAN scan) */
+  proxmox?: Partial<ProxmoxDeps>;
 }
 
 export interface DetectResult {

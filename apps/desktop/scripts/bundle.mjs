@@ -50,8 +50,10 @@ const result = await build({
     __HOMEPANEL_VERSION__: JSON.stringify(pkg.version),
     __AGENT_VERSION__: JSON.stringify(agentPkg.version),
   },
-  // optional native speedups of `ws`; ws works without them (it try/catches the require)
-  external: ["bufferutil", "utf-8-validate"],
+  // Optional native add-ons, all loaded inside try/catch by their users, which fall back to plain JS:
+  // `ws` speedups, and ssh2's cpu-features + sshcrypto.node (the installer's Proxmox SSH). A SEA can't
+  // load .node files from the bundle anyway, so they stay out; require() of them fails and is caught.
+  external: ["bufferutil", "utf-8-validate", "cpu-features", "*.node"],
   plugins: [installerPlugin],
   metafile: true,
   logLevel: "warning",

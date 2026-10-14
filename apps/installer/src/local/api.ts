@@ -1,6 +1,16 @@
 /** Small HomePanel server API client for the local flows (admin login, PCs, pairing, health). */
 import type { AgentSummary, DeviceInfo, PairStartResponse, PairStatusResponse } from "@homepanel/protocol";
+import { SERVER_PORT } from "../constants.js";
 import { adminLogin, registerAgent } from "../steps/pcs.js";
+
+/** "192.168.1.20" / "ha.local:8080" / "http://x" → http://host:8080 origin. Throws on garbage. */
+export function normalizeServerUrl(s: string): string {
+  let u = s.trim();
+  if (!/^https?:\/\//i.test(u)) u = "http://" + u;
+  const url = new URL(u);
+  if (!url.port && url.protocol === "http:") url.port = String(SERVER_PORT);
+  return url.origin;
+}
 
 export class ServerApi {
   private session?: string;
@@ -48,6 +58,21 @@ export class ServerApi {
 
   agents(): Promise<AgentSummary[]> {
     return this.json<AgentSummary[]>("GET", "/api/admin/agents");
+  }
+
+  /** Profiles with their YAML text. */
+  profileTexts(): Promise<{ id: string; yaml: string }[]> {
+    return this.json<{ id: string; yaml: string }[]>("GET", "/api/admin/profiles");
+  }
+
+  /** Create or replace a profile (the server validates it). */
+  async putProfile(id: string, yaml: string): Promise<void> {
+    await this.json("PUT", `/api/admin/profiles/${encodeURIComponent(id)}`, { yaml });
+  }
+
+  /** Replace the server's config.yaml (doorbells, Fully Kiosk, assistant settings). */
+  async putConfig(yaml: string): Promise<void> {
+    await this.json("PUT", "/api/admin/config", { yaml });
   }
 
   async profiles(): Promise<string[]> {

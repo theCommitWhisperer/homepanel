@@ -1,5 +1,5 @@
 name: HomePanel
-version: "0.1.0"
+version: "0.2.1"
 slug: homepanel
 description: Dashboard server for wall tablets and screens (PC temps, doorbell pop-ups, lights, buttons)
 url: https://github.com/theCommitWhisperer/homepanel
@@ -24,8 +24,10 @@ hassio_api: true
 # mqtt:need — install the Mosquitto broker app first; the Supervisor then hands us its credentials.
 services:
   - mqtt:need
+# no `image:` key on purpose: Home Assistant builds the app on the device from ./Dockerfile
 map:
-  - share:rw   # /share/homepanel/media can be used for gifs/images
+  - type: share   # /share/homepanel/media can be used for gifs/images
+    read_only: false
 options:
   admin_password: ""
   log_level: info

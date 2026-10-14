@@ -30,6 +30,29 @@ jobs:
       - run: pnpm -r build
       - run: node .github/scripts/run-tests.mjs
 
+  ha-app:
+    # The Home Assistant app builds HomePanel from source on the device; build it the same way here
+    # (BUILD_FROM as given, and the Dockerfile's own default that current Supervisors use) and check
+    # that the container starts without a Supervisor and answers /api/health.
+    name: HA app build (${{ matrix.base }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        base: ["ghcr.io/home-assistant/amd64-base:3.21", "default"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: docker build deploy/ha-app/homepanel + run + /api/health
+        env:
+          BASE: ${{ matrix.base }}
+          GIT: https://github.com/${{ github.repository }}
+          REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node .github/scripts/ha-app-check.mjs
+
   windows-exe:
     name: Build HomePanel-Setup.exe (Windows)
     runs-on: windows-latest

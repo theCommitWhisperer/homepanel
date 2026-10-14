@@ -26,6 +26,11 @@ export class World {
   devices: { name: string; profileId: string; token: string }[] = [];
   profiles = ["desk-monitor", "kitchen-ipad", "fire-hd8"];
   remote?: { url: string; adminPassword: string };
+  /** layouts on the remote server (id → yaml); undefined = use `profiles` */
+  remoteProfiles?: Map<string, string>;
+  remoteConfig?: string;
+  /** "METHOD origin/path" of every HTTP request */
+  requests: string[] = [];
 }
 
 export class FakeOps implements WinOps {
@@ -158,6 +163,35 @@ export class FakeOps implements WinOps {
     s.running = true;
     return ok();
   }
+  async disableService(name: string) {
+    this.log(`disable-service ${name}`);
+    const s = this.services.get(name);
+    if (s) {
+      s.running = false;
+      (s as { manual?: boolean }).manual = true;
+    }
+    return ok();
+  }
+  async removeFirewallRule(name: string) {
+    this.log(`remove-firewall ${name}`);
+    this.rules.delete(name);
+    return ok();
+  }
+  async unregisterTask(name: string) {
+    this.log(`unregister-task ${name}`);
+    if (name === "HomePanel Server") this.world.serverUp = false;
+    this.tasks.delete(name);
+    return ok();
+  }
+  uninstallPackageCommand(id: string) {
+    return ["winget", "uninstall", "--id", id, "-e"];
+  }
+  async uninstallPackage(id: string) {
+    this.log(`uninstall ${id}`);
+    this.packages.delete(id);
+    if (id === "EclipseFoundation.Mosquitto") this.services.delete("mosquitto");
+    return ok();
+  }
   async firewallRuleExists(name: string) {
     return this.rules.has(name);
   }
@@ -234,6 +268,7 @@ export function fakeFetch(world: World, paths: LocalPaths): typeof fetch {
       if (!world.lhmUp) throw new TypeError("fetch failed: ECONNREFUSED");
       return json({ id: 0, Text: "Sensor", Children: [] });
     }
+    world.requests.push(`${method} ${url.origin}${url.pathname}`);
     const local = (url.hostname === "127.0.0.1" || url.hostname === "localhost") && url.port === "8080";
     const remote = world.remote && url.origin === world.remote.url;
     if (!(local && world.serverUp) && !remote) throw new TypeError("fetch failed: ECONNREFUSED");
@@ -255,10 +290,30 @@ export function fakeFetch(world: World, paths: LocalPaths): typeof fetch {
       return x?.approved ? json({ status: "approved", deviceToken: x.token, device: { id: "d1", name: "x", profileId: x.profileId } }) : json({ status: "pending" });
     }
     if (auth !== "Bearer sess") return json({ error: "unauthorized" }, 401);
+    // the agent is online on the server whose host its agent.yaml points at
+    const agentHost = (() => {
+      try {
+        return new URL((YAML.parse(readFileSync(paths.agentYaml, "utf8")) as { mqtt?: { url?: string } }).mqtt?.url ?? "").hostname;
+      } catch {
+        return undefined;
+      }
+    })();
+    const onlineHere = world.agentOnline && (remote ? agentHost === url.hostname : agentHost === "127.0.0.1" || agentHost === "localhost" || !world.remote);
     if (p === "/api/admin/agents" && method === "GET")
-      return json(
-        [...world.agents].map(([pcId, a]) => ({ pcId, name: a.name, status: world.agentOnline ? "online" : "never-seen", hasMac: !!a.mac })),
-      );
+      return json([...world.agents].map(([pcId, a]) => ({ pcId, name: a.name, status: onlineHere ? "online" : "never-seen", hasMac: !!a.mac })));
+    if (remote && world.remoteProfiles) {
+      const pp = /^\/api\/admin\/profiles\/(.+)$/.exec(p);
+      if (pp && method === "PUT") {
+        if (/invalid/.test(body.yaml)) return json({ ok: false, errors: ["widgets: required"] }, 400);
+        world.remoteProfiles.set(decodeURIComponent(pp[1]!), body.yaml);
+        return json({ ok: true });
+      }
+      if (p === "/api/admin/profiles") return json([...world.remoteProfiles].map(([id, yaml]) => ({ id, name: id, yaml })));
+    }
+    if (remote && p === "/api/admin/config" && method === "PUT") {
+      world.remoteConfig = body.yaml;
+      return json({ ok: true });
+    }
     if (p === "/api/admin/agents" && method === "POST") {
       const ex = world.agents.get(body.pcId);
       const a = { name: body.name, key: ex?.key ?? `key-${body.pcId}-0123456789abcdef`, mac: body.mac ?? ex?.mac };
@@ -270,7 +325,7 @@ export function fakeFetch(world: World, paths: LocalPaths): typeof fetch {
     if (ap && method === "POST") {
       const x = world.pairings.get(ap[1]!);
       if (!x) return json({ error: "pairing-not-found" }, 404);
-      if (!world.profiles.includes(body.profileId)) return json({ error: "unknown profile" }, 400);
+      if (!(remote && world.remoteProfiles ? world.remoteProfiles.has(body.profileId) : world.profiles.includes(body.profileId))) return json({ error: "unknown profile" }, 400);
       Object.assign(x, { approved: true, token: `tok-${ap[1]}`, profileId: body.profileId });
       world.devices.push({ name: body.name, profileId: body.profileId, token: x.token! });
       return json({ id: "d1", name: body.name, profileId: body.profileId });

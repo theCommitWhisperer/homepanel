@@ -38,14 +38,15 @@ export const detectStep: Step = {
     if (!url) return { done: false, detail: "No Home Assistant address saved yet." };
     const s = await new HaClient(url, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
     if (s.state === "unreachable") return { done: false, detail: `Saved address ${url} is not answering (${s.error}).` };
-    return { done: true, detail: `Home Assistant at ${url} (${s.state === "onboarded" ? "already set up" : "needs onboarding"}).` };
+    return { done: true, detail: `Home Assistant at ${url} (${s.state === "onboarded" ? "already set up" : s.state === "preparing" ? "still preparing" : "needs onboarding"}).` };
   },
   async run(ctx) {
     const { out, prompt } = ctx;
     out.info("Looking for Home Assistant on your network (3 s)…");
     const found = await findHomeAssistant({ fetchImpl: ctx.fetchImpl, extra: ctx.store.state.haUrl ? [ctx.store.state.haUrl] : [] });
     const live = found.filter((f) => f.status !== "unreachable");
-    for (const f of live) out.ok(`${f.url}${f.name ? ` (${f.name})` : ""} — ${f.status === "onboarded" ? "set up" : "needs onboarding"}`);
+    for (const f of live)
+      out.ok(`${f.url}${f.name ? ` (${f.name})` : ""} — ${f.status === "onboarded" ? "set up" : f.status === "preparing" ? "still preparing" : "needs onboarding"}`);
     if (!live.length) out.warn("No Home Assistant found automatically.");
 
     const choices = [

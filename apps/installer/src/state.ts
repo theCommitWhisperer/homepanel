@@ -25,9 +25,25 @@ export interface SetupState {
   doorbells?: string[];
   /** AI guide provider choice (key lives in secrets.extra.ai_api_key) */
   ai?: { provider: string; model?: string; baseUrl?: string };
+  /** Proxmox host the installer created (or reused) the HA OS VM on. Never holds the root password. */
+  proxmox?: ProxmoxState;
   /** "Host on this PC" / "Join this PC" (local flows) */
   local?: LocalState;
   steps: Record<string, { status: StepStatus; at: string; note?: string }>;
+}
+
+export interface ProxmoxState {
+  host: string;
+  /** trusted SSH host key, e.g. "ssh-ed25519 SHA256:…" */
+  hostKey?: string;
+  vmid?: number;
+  /** VM created by the installer (vs. an existing one reused) */
+  created?: boolean;
+  storage?: string;
+  bridge?: string;
+  haosVersion?: string;
+  /** LAN IPv4 of the HA OS VM */
+  haIp?: string;
 }
 
 export interface LocalState {
@@ -42,6 +58,12 @@ export interface LocalState {
   lhmExe?: string;
   mosquittoDir?: string;
   browserPaired?: boolean;
+  /** server the browser token above belongs to (set by "Move the server") */
+  browserServer?: string;
+  /** "Move the server to Home Assistant": the server this PC used to host, e.g. http://127.0.0.1:8080 */
+  movedFrom?: string;
+  /** config.yaml was copied to the new server */
+  configCopied?: boolean;
 }
 
 /** Secrets live in their own 0600 file, never in setup-state.json. */

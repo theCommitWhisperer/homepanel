@@ -320,13 +320,13 @@ describe("main()", () => {
     expect(ops.relaunched[0]!.args.slice(-5)).toEqual(["--mode", "host", "--yes", "--elevated", "--pause"]);
     expect(ops.relaunched[0]!.args).toContain("setup");
   });
-  it("start menu → move (stub) → close; --version; HA mode needs no elevation", async () => {
+  it("start menu → move (nothing hosted here) → close; --version; HA mode needs no elevation", async () => {
     const ops = new FakeOps(root, new World(), fakePaths(root));
     const out = memoryOut();
     let paused = 0;
     const code = await main(["setup", "--pause"], { out, ops, prompt: scriptedPrompter(["move", "quit"]), pause: async () => void paused++ });
     expect(code).toBe(0);
-    expect(out.text()).toContain("coming next");
+    expect(out.text()).toContain("nothing to move");
     expect(paused).toBe(1);
     const v = memoryOut();
     expect(await main(["--version"], { out: v })).toBe(0);

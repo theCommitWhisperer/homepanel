@@ -4,7 +4,7 @@
  * icacls / sc; `linuxOps` uses apt-get / systemd / chmod.
  */
 import { spawn } from "node:child_process";
-import { existsSync, writeFileSync } from "node:fs";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { join } from "node:path";
 import type { ExecResult } from "../sys.js";
@@ -21,6 +21,9 @@ import {
   processRunningPs,
   registerTaskPs,
   relaunchElevatedPs,
+  disableServicePs,
+  removeFirewallRulePs,
+  unregisterTaskPs,
   restartServicePs,
   serviceEnvPs,
   serviceInfoPs,
@@ -68,6 +71,9 @@ export interface WinOps {
   installPackage(id: string, o?: { scope?: "machine" | "user"; silent?: boolean }): Promise<ExecResult>;
   /** the exact command installPackage runs (for the "this will run" text) */
   installPackageCommand(id: string, o?: { scope?: "machine" | "user"; silent?: boolean }): string[];
+  /** winget uninstall --id <id> -e … (Linux: apt-get remove -y) */
+  uninstallPackage(id: string): Promise<ExecResult>;
+  uninstallPackageCommand(id: string): string[];
   findLhmExe(): Promise<string | undefined>;
   findMosquittoDir(): Promise<string | undefined>;
   processRunning(name: string): Promise<boolean>;
@@ -75,14 +81,19 @@ export interface WinOps {
   serviceInfo(name: string): Promise<ServiceInfo>;
   setServiceEnv(name: string, env: Record<string, string>): Promise<ExecResult>;
   restartService(name: string): Promise<ExecResult>;
+  /** Stop a service and set it to Manual start (Linux: systemctl disable --now). */
+  disableService(name: string): Promise<ExecResult>;
   firewallRuleExists(name: string): Promise<boolean>;
   addFirewallRule(r: FirewallRule): Promise<ExecResult>;
+  removeFirewallRule(name: string): Promise<ExecResult>;
   networkCategory(): Promise<string>;
   setNetworkPrivate(): Promise<ExecResult>;
   taskInfo(name: string): Promise<TaskInfo>;
   registerTask(t: TaskSpec): Promise<ExecResult>;
   startTask(name: string): Promise<ExecResult>;
   stopTask(name: string): Promise<ExecResult>;
+  /** Stop and delete a scheduled task (Linux: disable + remove the systemd unit). */
+  unregisterTask(name: string): Promise<ExecResult>;
   /** Only SYSTEM + Administrators (+ optional user) can read `path`. */
   restrictAcl(path: string, o: { dir: boolean; user?: string }): Promise<ExecResult>;
   interactiveUser(): Promise<string>;
@@ -141,6 +152,7 @@ export function windowsOps(): WinOps {
     ...(o.scope ? ["--scope", o.scope] : []),
     ...(o.silent ? ["--silent"] : []),
   ];
+  const wingetUninstallArgs = (id: string) => ["uninstall", "--id", id, "-e", "--silent", "--accept-source-agreements", "--disable-interactivity"];
   return {
     platform: "win32",
     async isElevated() {
@@ -158,6 +170,10 @@ export function windowsOps(): WinOps {
       return spawnRun("winget", wingetArgs(id, o), { timeoutMs: 20 * 60_000, inherit: true });
     },
     installPackageCommand: (id, o) => ["winget", ...wingetArgs(id, o)],
+    uninstallPackage(id) {
+      return spawnRun("winget", wingetUninstallArgs(id), { timeoutMs: 10 * 60_000, inherit: true });
+    },
+    uninstallPackageCommand: (id) => ["winget", ...wingetUninstallArgs(id)],
     async findLhmExe() {
       return (await psOut(findLhmPs)) || undefined;
     },
@@ -177,10 +193,12 @@ export function windowsOps(): WinOps {
     },
     setServiceEnv: (name, env) => ps(serviceEnvPs(name, env)),
     restartService: (name) => ps(restartServicePs(name), 60_000),
+    disableService: (name) => ps(disableServicePs(name), 60_000),
     async firewallRuleExists(name) {
       return (await psOut(firewallExistsPs(name))) === "yes";
     },
     addFirewallRule: (r) => ps(firewallRulePs(r)),
+    removeFirewallRule: (name) => ps(removeFirewallRulePs(name)),
     networkCategory: () => psOut(networkCategoryPs),
     setNetworkPrivate: () => ps(setNetworkPrivatePs),
     async taskInfo(name) {
@@ -192,6 +210,7 @@ export function windowsOps(): WinOps {
     registerTask: (t) => ps(registerTaskPs(t)),
     startTask: (name) => ps(startTaskPs(name)),
     stopTask: (name) => ps(stopTaskPs(name)),
+    unregisterTask: (name) => ps(unregisterTaskPs(name)),
     restrictAcl: (path, o) => spawnRun("icacls", icaclsArgs(path, o)),
     async interactiveUser() {
       return (await psOut(interactiveUserPs)) || `${process.env.USERDOMAIN ?? "."}\\${process.env.USERNAME ?? userInfo().username}`;
@@ -254,6 +273,8 @@ export function linuxOps(unitDir = "/etc/systemd/system"): WinOps {
     },
     installPackage: (id) => sh("apt-get", aptArgs(id), { inherit: true, timeoutMs: 20 * 60_000, env: { DEBIAN_FRONTEND: "noninteractive" } }),
     installPackageCommand: (id) => ["apt-get", ...aptArgs(id)],
+    uninstallPackage: (id) => sh("apt-get", ["remove", "-y", ...(APT_NAMES[id] ?? [id])], { inherit: true, timeoutMs: 10 * 60_000, env: { DEBIAN_FRONTEND: "noninteractive" } }),
+    uninstallPackageCommand: (id) => ["apt-get", "remove", "-y", ...(APT_NAMES[id] ?? [id])],
     findLhmExe: async () => undefined,
     findMosquittoDir: async () => (existsSync("/usr/sbin/mosquitto") ? "/usr/sbin" : undefined),
     async processRunning(name) {
@@ -272,8 +293,10 @@ export function linuxOps(unitDir = "/etc/systemd/system"): WinOps {
       await sh("systemctl", ["enable", name]);
       return sh("systemctl", ["restart", name]);
     },
+    disableService: (name) => sh("systemctl", ["disable", "--now", name]),
     firewallRuleExists: async () => true,
     addFirewallRule: async () => ok(),
+    removeFirewallRule: async () => ok(),
     networkCategory: async () => "Private",
     setNetworkPrivate: async () => ok(),
     async taskInfo(name) {
@@ -290,6 +313,12 @@ export function linuxOps(unitDir = "/etc/systemd/system"): WinOps {
     },
     startTask: (name) => sh("systemctl", ["restart", unitName(name)]),
     stopTask: (name) => sh("systemctl", ["stop", unitName(name)]),
+    async unregisterTask(name) {
+      const unit = unitName(name);
+      await sh("systemctl", ["disable", "--now", unit]);
+      rmSync(join(unitDir, unit), { force: true });
+      return sh("systemctl", ["daemon-reload"]);
+    },
     restrictAcl: (path, o) => sh("chmod", [o.dir ? "700" : "600", path]),
     async interactiveUser() {
       return process.env.SUDO_USER || process.env.USER || userInfo().username;

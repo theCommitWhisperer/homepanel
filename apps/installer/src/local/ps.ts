@@ -177,6 +177,19 @@ export function serviceInfoPs(service: string): string {
     "foreach ($x in @($e)) { if ($x) { Write-Output $x } }",
   ].join("\n");
 }
+/** Stop a service and set it to start manually (kept installed). */
+export const disableServicePs = (service: string) =>
+  [
+    `$s = Get-Service -Name ${psStr(service)} -ErrorAction SilentlyContinue`,
+    "if (-not $s) { return }",
+    `Stop-Service -Name ${psStr(service)} -Force -ErrorAction SilentlyContinue`,
+    `Set-Service -Name ${psStr(service)} -StartupType Manual`,
+  ].join("\n");
+export const unregisterTaskPs = (name: string) =>
+  `$t = Get-ScheduledTask -TaskName ${psStr(name)} -ErrorAction SilentlyContinue; if ($t) { Stop-ScheduledTask -TaskName ${psStr(name)} -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName ${psStr(name)} -Confirm:$false }`;
+export const removeFirewallRulePs = (name: string) =>
+  `Get-NetFirewallRule -Name ${psStr(name)} -ErrorAction SilentlyContinue | Remove-NetFirewallRule`;
+
 export const restartServicePs = (service: string) =>
   `$ErrorActionPreference = 'Stop'\nRestart-Service -Name ${psStr(service)} -Force\nStart-Sleep -Seconds 2\n[string](Get-Service -Name ${psStr(service)}).Status`;
 

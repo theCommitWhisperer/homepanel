@@ -25,6 +25,8 @@ export const clientIdFor = (haUrl: string) => `${haUrl.replace(/\/+$/, "")}/`;
 
 export type OnboardingStatus =
   | { state: "unreachable"; error: string }
+  /** HA OS first boot: the Supervisor's landing page answers while Core is still being downloaded/installed */
+  | { state: "preparing" }
   | { state: "onboarding"; steps: { step: string; done: boolean }[] }
   | { state: "onboarded" };
 
@@ -58,6 +60,14 @@ export interface FlowInProgress {
   handler: string;
   step_id?: string;
   context?: { source?: string; title_placeholders?: Record<string, string>; unique_id?: string };
+}
+
+interface SupervisorJob {
+  name: string;
+  done?: boolean;
+  progress?: number;
+  stage?: string | null;
+  child_jobs?: SupervisorJob[];
 }
 
 /** REST + WebSocket client for the parts of the HA API the installer needs. */
@@ -140,11 +150,52 @@ export class HaClient {
       const err = e as Error & { cause?: { code?: string } };
       return { state: "unreachable", error: err.cause?.code ?? err.message };
     }
-    if (res.status === 404 || res.status === 401) return { state: "onboarded" };
+    // 404/401: either onboarding is finished, or this is HA OS's "Preparing Home Assistant" landing page,
+    // which answers 401 on every /api/ path while Core downloads. Core always answers /auth/providers with JSON.
+    if (res.status === 404 || res.status === 401) return (await this.coreAnswers()) ? { state: "onboarded" } : { state: "preparing" };
     if (!res.ok) return { state: "unreachable", error: `HTTP ${res.status}` };
     const steps = (await res.json().catch(() => [])) as { step: string; done: boolean }[];
     if (Array.isArray(steps) && steps.length && steps.every((s) => s.done)) return { state: "onboarded" };
     return { state: "onboarding", steps: Array.isArray(steps) ? steps : [] };
+  }
+
+  /** True when Home Assistant Core itself (not the HA OS landing page) answers: /auth/providers is JSON. */
+  async coreAnswers(): Promise<boolean> {
+    try {
+      const r = await this.fetchImpl(this.url + "/auth/providers", { signal: AbortSignal.timeout(5000) });
+      // 200 = list of providers; 400 {code: "onboarding_required"} before the owner exists
+      if (r.status !== 200 && r.status !== 400) return false;
+      const j = await r.json().catch(() => undefined);
+      return j !== undefined && typeof j === "object";
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * While HA OS prepares (first boot), its landing page exposes the Supervisor's job list. Returns a
+   * short progress text such as "home_assistant_core_install 40%", or undefined.
+   */
+  async preparingProgress(): Promise<string | undefined> {
+    try {
+      const r = await this.fetchImpl(this.url + "/supervisor-api/jobs/info", { signal: AbortSignal.timeout(5000) });
+      if (!r.ok) return undefined;
+      const j = (await r.json()) as { data?: { jobs?: SupervisorJob[] } };
+      const flat: SupervisorJob[] = [];
+      const walk = (list: SupervisorJob[] | undefined) => {
+        for (const x of list ?? []) {
+          flat.push(x);
+          walk(x.child_jobs);
+        }
+      };
+      walk(j.data?.jobs);
+      const running = flat.filter((x) => !x.done);
+      const job = running.reverse().find((x) => typeof x.progress === "number" && x.progress > 0) ?? running[0];
+      if (!job) return undefined;
+      return `${job.name}${job.stage ? ` (${job.stage})` : ""}${typeof job.progress === "number" && job.progress > 0 ? ` ${Math.round(job.progress)}%` : ""}`;
+    } catch {
+      return undefined;
+    }
   }
 
   /* ---- onboarding (each call mirrors what HA's own onboarding page does) ---- */

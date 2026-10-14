@@ -7,6 +7,7 @@ Usage:
   HomePanel                        start the setup wizard (same as "HomePanel setup")
   HomePanel setup [options]        set up this PC: host the server, join a PC, or set up Home Assistant
   HomePanel doctor                 check Home Assistant, MQTT, the server and PC agents
+  HomePanel host-key <ip>          show a host's SSH key fingerprint (Proxmox setup asks you to trust it)
   HomePanel server [--demo]        run the HomePanel server (port 8080; --demo = fake devices)
   HomePanel agent <command>        PC agent: run, list-sensors, test-action, init, check-config
   HomePanel --version | --help
@@ -18,7 +19,7 @@ Examples:
 `;
 
 /** Installer subcommands passed straight through. */
-const INSTALLER_COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key"]);
+const INSTALLER_COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "host-key"]);
 
 export type Plan =
   | { kind: "installer"; argv: string[] }

@@ -3,3 +3,7 @@ packages:
   - "packages/*"
 onlyBuiltDependencies:
   - esbuild
+# ssh2 (Proxmox setup over SSH) runs pure-JS; its optional native speedups stay unbuilt
+ignoredBuiltDependencies:
+  - cpu-features
+  - ssh2

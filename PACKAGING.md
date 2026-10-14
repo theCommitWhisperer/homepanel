@@ -63,8 +63,9 @@ The packaging owner embeds kiosk `dist/` and the agent's Windows scripts as SEA 
 2. **Join this PC to my HomePanel** — find the server (mDNS / URL), admin login, register this PC,
    install LHM + agent.
 3. **Set up Home Assistant / mini PC** — the existing HA flow (detect, onboard, MQTT, token, ZBT-1...),
-   plus a Proxmox path (HA OS VM).
-4. **Move the server to Home Assistant** — later.
+   plus a Proxmox path that creates the HA OS VM over SSH (ssh2, root password in memory only).
+4. **Move the server to Home Assistant** — for a PC that ran Host mode: register its agent with the HomePanel app on HA,
+   copy layouts + config.yaml (admin API), retire the local server task, Mosquitto and firewall rules.
 
 ## Rules
 

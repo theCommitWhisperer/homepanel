@@ -25,7 +25,7 @@ its progress, so you can stop and run it again any time — finished steps are s
    | **1. Host HomePanel on this PC** | Tonight, on the gaming PC. Everything runs here. |
    | **2. Join this PC to my HomePanel** | Another PC already runs HomePanel; add this one's temps and buttons. |
    | **3. Set up Home Assistant / mini PC** | Home Assistant OS on the T8 Plus (Proxmox VM or bare metal), Zigbee, doorbells. |
-   | **4. Move the server to Home Assistant** | Coming next. |
+   | **4. Move the server to Home Assistant** | After step 3, on the PC that hosted HomePanel: hands everything to the HomePanel app on HA. |
 
 ## 2. Host HomePanel on this PC (~10 min, mostly waiting for downloads)
 
@@ -86,11 +86,27 @@ passwords, then installs LibreHardwareMonitor + the agent the same way.
 
 ## 6. Later: the mini PC (Proxmox + Home Assistant OS)
 
-Run `HomePanel.exe` → **3. Set up Home Assistant / mini PC** → **Mini PC running Proxmox VE**. It shows the one
-command to paste into the **Proxmox host shell** (the community *Home Assistant OS VM* script), how to pass the
-**ZBT-1** through to the VM, then waits for Home Assistant and does onboarding, MQTT, the token, Zigbee and doorbells
-for you. Details: [hosts.md → Proxmox VE](hosts.md#proxmox-ve). Moving the HomePanel server onto Home Assistant is
-mode 4 (coming next).
+Run `HomePanel.exe` → **3. Set up Home Assistant / mini PC** → **Mini PC running Proxmox VE** → *Do it for me over
+SSH*. Give it the Proxmox IP (it scans for one) and the root password, trust the host key, and it creates the Home
+Assistant OS VM itself (download, `qm create`, EFI + system disk, ZBT-1 passthrough, start), finds the VM's IP and
+goes straight on with onboarding, MQTT, the token, Zigbee, doorbells and the HomePanel app. Details and the manual
+alternative: [hosts.md → Proxmox VE](hosts.md#proxmox-ve).
+
+## 7. Move the server to Home Assistant
+
+When step 6 finishes on the gaming PC that ran **Host on this PC**, setup offers to move the server right away (or
+pick **4. Move the server to Home Assistant** later). It:
+
+1. registers this PC with the HomePanel app on HA and points `agent.yaml` at HA's Mosquitto (your buttons stay),
+   restarts the agent and waits until the new server shows the PC online;
+2. copies your layouts (`C:\ProgramData\HomePanel\server\profiles\*.yaml`) and `config.yaml` to the new server;
+3. removes the **HomePanel Server** task, stops Mosquitto (set to Manual; it offers to uninstall it) and removes the two
+   firewall rules — the old data folder stays as a backup;
+4. pairs this PC's browser with the new dashboard and prints its address.
+
+**Screens paired to the old server must pair again:** open `http://<ha-ip>:8080` on each tablet and approve the new
+6-digit code in *Admin → Screens*. Other PCs that joined the gaming PC: run `HomePanel.exe` → *Join this PC* → pick the
+Home Assistant address.
 
 ## Where things are
 

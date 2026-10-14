@@ -28,6 +28,7 @@ export function makeContext(o: {
   vault?: SecretVault;
   repoRoot?: string;
   noWait?: boolean;
+  proxmox?: StepContext["proxmox"];
 }): StepContext {
   const vault = o.vault ?? new SecretVault();
   vault.addAll(o.store.secrets);
@@ -41,6 +42,7 @@ export function makeContext(o: {
     vault,
     repoRoot: o.repoRoot ?? findRepoRoot(),
     noWait: o.noWait,
+    proxmox: o.proxmox,
     ha() {
       const url = o.store.state.haUrl;
       if (!url) throw new Error("Home Assistant address is not known yet (run the detect step).");
