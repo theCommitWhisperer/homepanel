@@ -1,6 +1,6 @@
 {
   "name": "@homepanel/desktop",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": true,
   "type": "module",
   "description": "HomePanel.exe: server, PC agent and setup wizard in one Node single executable application",

@@ -1,3 +1,4 @@
+import { saveHaUrl } from "./detect.js";
 import { HaClient, HaError, type CoreLocation } from "../ha/client.js";
 import { waitForHa } from "../ha/discover.js";
 import { detectHaOs } from "./detect.js";
@@ -96,7 +97,7 @@ export const onboardStep: Step = {
   },
   async run(ctx) {
     const { out, prompt } = ctx;
-    const url = ctx.store.state.haUrl;
+    let url = ctx.store.state.haUrl;
     if (!url) {
       out.err("No Home Assistant address yet — run the 'detect' step first.");
       return "failed";
@@ -122,6 +123,11 @@ export const onboardStep: Step = {
     if (!up) {
       out.err("Home Assistant did not answer. Check it has power and network, then re-run setup.");
       return "failed";
+    }
+    if (up !== url) {
+      out.info(`Home Assistant answers at ${up} (not ${url}); using that.`);
+      await saveHaUrl(ctx, up);
+      url = up;
     }
     const client = new HaClient(url, { fetchImpl: ctx.fetchImpl });
     const status = await client.onboardingStatus();
@@ -224,10 +230,16 @@ export const tokenStep: Step = {
         ],
       });
       if (how === "paste") {
-        const t = await ctx.secret("Home Assistant long-lived token");
+        const t = cleanPastedToken(await ctx.secret("Home Assistant long-lived token"));
         client.token = t;
         if (!(await client.apiOk())) {
-          out.err("Home Assistant rejected that token.");
+          const why = await client.request("GET", "/api/").then(
+            () => "",
+            (e) => (e as Error).message,
+          );
+          out.err(`Home Assistant at ${url} did not accept that token${why ? `: ${why}` : ""}.`);
+          if (/Cannot reach/.test(why)) out.info("That's a connection problem, not the token: check the address in your browser's address bar and re-run the 'detect' step.");
+          else out.info(`The token is ${t.length} characters long (HA tokens are about 180). If it looks short, copy it again.`);
           return "failed";
         }
         ctx.store.setSecret("haToken", t);
@@ -261,3 +273,13 @@ export const tokenStep: Step = {
     return "done";
   },
 };
+
+/**
+ * Tokens pasted into a Windows console can carry bracketed-paste markers (ESC[200~ … ESC[201~),
+ * spaces or line breaks. Keep just the token (a JWT: three dot-separated base64url parts).
+ */
+export function cleanPastedToken(raw: string): string {
+  const s = raw.replace(/\x1b\[[0-9;]*[~A-Za-z]/g, "").replace(/\[20[01]~/g, "").replace(/\s+/g, "");
+  const jwt = /[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.exec(s);
+  return jwt ? jwt[0] : s;
+}

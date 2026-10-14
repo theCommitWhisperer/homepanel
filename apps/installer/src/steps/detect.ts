@@ -1,4 +1,4 @@
-import { HaClient, normalizeHaUrl } from "../ha/client.js";
+import { HaClient, alternateHaUrl, normalizeHaUrl, resolveHaUrl } from "../ha/client.js";
 import { findHomeAssistant } from "../ha/discover.js";
 import type { Step, StepContext } from "./types.js";
 
@@ -36,8 +36,19 @@ export const detectStep: Step = {
   async detect(ctx) {
     const url = ctx.store.state.haUrl;
     if (!url) return { done: false, detail: "No Home Assistant address saved yet." };
-    const s = await new HaClient(url, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
-    if (s.state === "unreachable") return { done: false, detail: `Saved address ${url} is not answering (${s.error}).` };
+    let s = await new HaClient(url, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
+    if (s.state === "unreachable") {
+      // Newer HA OS answers on port 80 instead of 8123 (or the other way round): follow it.
+      const alt = alternateHaUrl(url);
+      const sa = alt ? await new HaClient(alt, { fetchImpl: ctx.fetchImpl }).onboardingStatus() : s;
+      if (alt && sa.state !== "unreachable") {
+        await saveHaUrl(ctx, alt);
+        ctx.out.info(`Home Assistant now answers at ${alt} (not ${url}); using that.`);
+        s = sa;
+        return { done: true, detail: `Home Assistant at ${alt}.` };
+      }
+      return { done: false, detail: `Saved address ${url} is not answering (${s.error}).` };
+    }
     return { done: true, detail: `Home Assistant at ${url} (${s.state === "onboarded" ? "already set up" : s.state === "preparing" ? "still preparing" : "needs onboarding"}).` };
   },
   async run(ctx) {
@@ -62,7 +73,7 @@ export const detectStep: Step = {
     let url = pick;
     if (pick === "__ip") {
       const typed = await prompt.input({
-        message: "Home Assistant address (e.g. 192.168.1.20 or http://192.168.1.20:8123):",
+        message: "Home Assistant address — the one in your browser's address bar (e.g. 192.168.1.20):",
         validate: (v) => {
           try {
             normalizeHaUrl(v);
@@ -72,10 +83,10 @@ export const detectStep: Step = {
           }
         },
       });
-      url = normalizeHaUrl(typed);
-      const s = await new HaClient(url, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
-      if (s.state === "unreachable") {
-        out.warn(`Nothing answers at ${url} yet (${s.error}). Saved anyway; the onboarding step will wait for it.`);
+      const r = await resolveHaUrl(typed, ctx.fetchImpl);
+      url = r.url;
+      if (!r.reachable) {
+        out.warn(`Nothing answers at ${url} yet (also tried without :8123). Saved anyway; the onboarding step will wait for it.`);
       } else out.ok(`Found Home Assistant at ${url}.`);
     }
     await saveHaUrl(ctx, url);

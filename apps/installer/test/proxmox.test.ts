@@ -279,7 +279,7 @@ describe("first boot of HA OS (Supervisor landing page)", () => {
           if (++n === 3) ha.state.preparing = false; // Core is up
         },
       });
-      expect(ok).toBe(true);
+      expect(ok).toBeTruthy(); // the URL that answered
       expect(ticks[0]).toBe("preparing:home_assistant_core_install 40%");
       expect((await c.onboardingStatus()).state).toBe("onboarding");
       ha.state.onboarded = true;

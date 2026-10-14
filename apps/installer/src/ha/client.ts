@@ -12,12 +12,71 @@ export class HaError extends Error {
   }
 }
 
+/** True when the text names a port explicitly (e.g. "1.2.3.4:80", "http://ha.local:8123/"). */
+export function hasExplicitPort(input: string): boolean {
+  const s = input.trim().replace(/^https?:\/\//i, "");
+  const host = s.split("/")[0] ?? "";
+  return /^\[.*\]:\d+$/.test(host) || /^[^:\[\]]+:\d+$/.test(host);
+}
+
+/**
+ * Normalize a Home Assistant address: add http:// and, when no port is given, the classic :8123.
+ * An explicit port is always kept — including :80, which newer Home Assistant OS versions use
+ * (they answer on plain http://<ip>/), so "http://192.168.1.81:80" becomes "http://192.168.1.81".
+ * Prefer resolveHaUrl() for typed input: it tries both ports.
+ */
 export function normalizeHaUrl(input: string): string {
   let s = input.trim();
   if (!/^https?:\/\//i.test(s)) s = "http://" + s;
   const u = new URL(s);
-  if (!u.port && u.protocol === "http:") u.port = "8123";
+  if (!u.port && u.protocol === "http:" && !hasExplicitPort(input)) u.port = "8123";
   return `${u.protocol}//${u.host}`;
+}
+
+/** Same address without guessing a port (used for saved, already-resolved URLs). */
+export function cleanHaUrl(input: string): string {
+  let s = input.trim();
+  if (!/^https?:\/\//i.test(s)) s = "http://" + s;
+  const u = new URL(s);
+  return `${u.protocol}//${u.host}`;
+}
+
+/** The same host on the other usual Home Assistant port (8123 <-> 80), or undefined. */
+export function alternateHaUrl(url: string): string | undefined {
+  const u = new URL(cleanHaUrl(url));
+  if (u.protocol !== "http:") return undefined;
+  if (u.port === "8123") return `http://${u.hostname.includes(":") ? `[${u.hostname}]` : u.hostname}`;
+  if (u.port === "") return `http://${u.host}:8123`;
+  return undefined;
+}
+
+/** Does a Home Assistant answer at this base URL? (/auth/providers: 200 once set up, 400 while onboarding.) */
+export async function isHomeAssistant(url: string, fetchImpl: typeof fetch = globalThis.fetch, timeoutMs = 4000): Promise<boolean> {
+  try {
+    const r = await fetchImpl(cleanHaUrl(url) + "/auth/providers", { signal: AbortSignal.timeout(timeoutMs) });
+    if (r.status !== 200 && r.status !== 400) {
+      // HA OS "Preparing Home Assistant" landing page: no API yet, but it is the right place
+      const m = await fetchImpl(cleanHaUrl(url) + "/", { signal: AbortSignal.timeout(timeoutMs) }).catch(() => undefined);
+      const text = m ? await m.text().catch(() => "") : "";
+      return /Home Assistant/i.test(text);
+    }
+    const text = await r.text();
+    return r.status === 200 ? text.trim().startsWith("[") || text.includes("providers") : /onboarding/i.test(text);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Turn what someone typed (or an IP we found) into the URL Home Assistant really answers on.
+ * Without a port it tries :8123 first, then plain http (port 80, newer HA OS). Falls back to the
+ * :8123 form when nothing answers yet (e.g. still booting).
+ */
+export async function resolveHaUrl(input: string, fetchImpl: typeof fetch = globalThis.fetch): Promise<{ url: string; reachable: boolean }> {
+  const first = normalizeHaUrl(input);
+  const candidates = hasExplicitPort(input) ? [first] : [first, alternateHaUrl(first)].filter((x): x is string => !!x);
+  for (const c of candidates) if (await isHomeAssistant(c, fetchImpl)) return { url: c, reachable: true };
+  return { url: first, reachable: false };
 }
 
 /** HA's own frontend uses the base URL with a trailing slash as OAuth client_id. */
@@ -77,7 +136,8 @@ export class HaClient {
   private fetchImpl: typeof fetch;
 
   constructor(url: string, opts: { token?: string; fetchImpl?: typeof fetch } = {}) {
-    this.url = normalizeHaUrl(url);
+    // saved URLs are already resolved (port included, or none = port 80): don't guess a port here
+    this.url = hasExplicitPort(url) || /^https?:\/\//i.test(url.trim()) ? cleanHaUrl(url) : normalizeHaUrl(url);
     this.token = opts.token;
     this.fetchImpl = opts.fetchImpl ?? globalThis.fetch;
   }

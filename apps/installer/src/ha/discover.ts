@@ -1,4 +1,4 @@
-import { HaClient, normalizeHaUrl, type OnboardingStatus } from "./client.js";
+import { HaClient, alternateHaUrl, normalizeHaUrl, type OnboardingStatus } from "./client.js";
 
 export interface FoundHa {
   url: string;
@@ -93,10 +93,20 @@ export async function findHomeAssistant(
       /* ignore */
     }
   };
-  for (const e of opts.extra ?? []) if (e) add(e, "user");
+  // Each address is tried on :8123 and on plain http (port 80): newer Home Assistant OS answers on port 80.
+  const addBoth = (url: string, source: FoundHa["source"], extra: Partial<FoundHa> = {}) => {
+    add(url, source, extra);
+    try {
+      const alt = alternateHaUrl(normalizeHaUrl(url));
+      if (alt) add(alt, source, extra);
+    } catch {
+      /* ignore */
+    }
+  };
+  for (const e of opts.extra ?? []) if (e) addBoth(e, "user");
   const mdns = opts.skipMdns ? [] : await browseMdns(opts.mdnsMs ?? 3000);
   for (const f of mdns) add(f.url, "mdns", f);
-  add("http://homeassistant.local:8123", "probe");
+  addBoth("http://homeassistant.local:8123", "probe");
 
   const checked = await Promise.all(
     [...candidates.values()].map(async (c) => {
@@ -121,13 +131,20 @@ export async function waitForHa(
     fetchImpl?: typeof fetch;
     onTick?: (elapsedS: number, state: "unreachable" | "preparing", progress?: string) => void;
   } = {},
-): Promise<boolean> {
+): Promise<string | false> {
+  // Also watch the same host on the other port (8123 <-> 80): newer HA OS answers on port 80.
   const client = new HaClient(url, { fetchImpl: opts.fetchImpl });
+  const altUrl = alternateHaUrl(url);
+  const alt = altUrl ? new HaClient(altUrl, { fetchImpl: opts.fetchImpl }) : undefined;
   const start = Date.now();
   const timeout = opts.timeoutMs ?? 20 * 60_000;
   for (;;) {
     const s = await client.onboardingStatus();
-    if (s.state === "onboarding" || s.state === "onboarded") return true;
+    if (s.state === "onboarding" || s.state === "onboarded") return url;
+    if (alt && s.state === "unreachable") {
+      const a = await alt.onboardingStatus();
+      if (a.state === "onboarding" || a.state === "onboarded") return altUrl!;
+    }
     const elapsed = Date.now() - start;
     if (elapsed > timeout) return false;
     opts.onTick?.(Math.round(elapsed / 1000), s.state, s.state === "preparing" ? await client.preparingProgress() : undefined);

@@ -14,7 +14,7 @@
  */
 import { connect as netConnect } from "node:net";
 import { HAOS_VERSION } from "../constants.js";
-import { normalizeHaUrl } from "../ha/client.js";
+import { resolveHaUrl } from "../ha/client.js";
 import { lanIps } from "../sys.js";
 import type { StepStatus } from "../state.js";
 import { saveHaUrl } from "../steps/detect.js";
@@ -545,7 +545,7 @@ async function onHost(ctx: StepContext, d: ProxmoxDeps, s: SshSession, host: str
     haIp = typed.trim() || "homeassistant.local";
   }
   store.update({ hostType: "proxmox", haOs: true, proxmox: { ...store.state.proxmox!, vmid: id, haIp } });
-  await saveHaUrl(ctx, normalizeHaUrl(haIp));
+  await saveHaUrl(ctx, (await resolveHaUrl(haIp, ctx.fetchImpl)).url);
   out.ok(`Home Assistant: ${color.bold(store.state.haUrl!)}  (saved; next the wizard waits for it to finish preparing)`);
   out.info("First boot downloads Home Assistant (~700 MB) and can take 10–20 minutes. You can watch it at that address.");
   return "done";
