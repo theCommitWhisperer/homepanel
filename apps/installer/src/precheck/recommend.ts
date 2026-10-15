@@ -12,6 +12,7 @@ export function nextHaStep(ha: NonNullable<Facts["ha"]>): string | undefined {
   if (ha.status === "unreachable") return "detect";
   if (ha.status === "preparing" || ha.status === "onboarding") return "onboard";
   if (ha.token !== "valid") return "token";
+  if (ha.ipMethod === "dhcp") return "staticip";
   if (ha.haOs !== false && ha.mosquitto !== "running") return "mqtt";
   if (ha.homepanelApp !== "running" || ha.homepanelHealth === false) return "server";
   return undefined;
@@ -24,6 +25,7 @@ function haMissing(ha: NonNullable<Facts["ha"]>): string[] {
   if (ha.status === "onboarding") m.push("its owner account isn't created yet");
   if (ha.status === "onboarded" && ha.token === "none") m.push("HomePanel has no access token for it yet");
   if (ha.status === "onboarded" && ha.token === "invalid") m.push("the saved access token no longer works");
+  if (ha.token === "valid" && ha.ipMethod === "dhcp") m.push("it doesn't have a fixed IP address yet (one router reboot could move it)");
   if (ha.token === "valid" && ha.haOs !== false && ha.mosquitto !== "running")
     m.push(ha.mosquitto === "stopped" ? "the Mosquitto app is stopped" : "the Mosquitto app isn't installed");
   if (ha.token === "valid" && ha.homepanelApp !== "running")

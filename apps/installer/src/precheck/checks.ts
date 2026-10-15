@@ -23,6 +23,7 @@ export const CHECKS: { id: string; group: CheckGroup; label: string }[] = [
   { id: "ha.onboarded", group: "ha", label: "Onboarding" },
   { id: "ha.token", group: "ha", label: "Access token" },
   { id: "ha.os", group: "ha", label: "Home Assistant OS (apps)" },
+  { id: "ha.ip", group: "ha", label: "Fixed IP address" },
   { id: "ha.mosquitto", group: "ha", label: "MQTT broker (Mosquitto)" },
   { id: "ha.zbt1", group: "ha", label: "Zigbee (ZBT-1)" },
   { id: "ha.proxmox", group: "ha", label: "Proxmox" },
@@ -110,6 +111,8 @@ export async function runPrechecks(env: PrecheckEnv, onCheck: (c: Check) => void
       live.find((f) => f.status === "onboarded") ??
       live[0];
     if (!pick && savedClean) pick = { url: savedClean, status: "unreachable" };
+    // Found it somewhere else than saved (e.g. port 80 instead of 8123): remember that for every later step.
+    if (pick && pick.status !== "unreachable" && pick.url !== savedClean) env.rememberHa?.(pick.url);
     if (!pick) return { found, pick: undefined };
     const token = haStore.secrets.haToken;
     let tokenState: NonNullable<Facts["ha"]>["token"] = token ? "unknown" : "none";
@@ -242,7 +245,7 @@ export async function runPrechecks(env: PrecheckEnv, onCheck: (c: Check) => void
           mode: "ha",
           fromStep: "detect",
         });
-        for (const id of ["ha.onboarded", "ha.token", "ha.os", "ha.mosquitto"]) report(id, "info", "Needs Home Assistant.");
+        for (const id of ["ha.onboarded", "ha.token", "ha.os", "ha.ip", "ha.mosquitto"]) report(id, "info", "Needs Home Assistant.");
         return;
       }
       if (p.status === "unreachable")
@@ -274,8 +277,18 @@ export async function runPrechecks(env: PrecheckEnv, onCheck: (c: Check) => void
       if (!d) {
         report("ha.os", "info", h.tokenState === "valid" ? "Could not ask Home Assistant." : "Needs a working token.");
         report("ha.mosquitto", "info", h.tokenState === "valid" ? "Could not ask Home Assistant." : "Needs a working token.");
+        report("ha.ip", "info", h.tokenState === "valid" ? "Could not ask Home Assistant." : "Needs a working token.");
         return;
       }
+      if (d.ip?.method === "static") report("ha.ip", "ok", `Fixed address ${d.ip.address ?? "set"}${d.ip.iface ? ` on ${d.ip.iface}` : ""}.`);
+      else if (d.ip?.method === "dhcp")
+        report("ha.ip", "warn", `Uses ${d.ip.address ?? "an address"} from your router (DHCP), which can change after a reboot and break every screen and PC.`, {
+          label: "Give it a fixed IP",
+          mode: "ha",
+          fromStep: "staticip",
+        });
+      else if (!d.haOs) report("ha.ip", "info", "Set a fixed IP on the Docker host, or reserve it in your router.", { label: "Fixed IP step", mode: "ha", fromStep: "staticip" });
+      else report("ha.ip", "info", "Couldn't read Home Assistant's network settings.");
       report("ha.os", d.haOs ? "ok" : "info", d.haOs ? "Home Assistant OS: apps (add-ons) available." : "Home Assistant Container: no apps; MQTT and HomePanel run in Docker.");
       if (!d.haOs) return report("ha.mosquitto", "info", "Runs in Docker next to Home Assistant (no apps on this install).");
       const m = appState(d.addons, (s) => s === MOSQUITTO_SLUG);
@@ -377,6 +390,7 @@ export async function runPrechecks(env: PrecheckEnv, onCheck: (c: Check) => void
             homepanelHealth: app?.health ? app.health.ok : h.pick.status === "unreachable" ? undefined : false,
             homepanelUrl: app?.url ?? `http://${hostOf(h.pick.url)}:${SERVER_PORT}`,
             zha: h.details?.zha ?? "unknown",
+            ...(h.details?.ip ? { ipMethod: h.details.ip.method } : {}),
           },
         }
       : {}),

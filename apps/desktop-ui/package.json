@@ -1,6 +1,6 @@
 {
   "name": "@homepanel/desktop-ui",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "description": "HomePanel desktop window: system check, setup runs and control panel (served by HomePanel.exe on 127.0.0.1)",

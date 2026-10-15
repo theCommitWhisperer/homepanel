@@ -95,7 +95,7 @@ export const SCENARIOS: Record<string, FakeScenario> = {
       { url: "http://192.168.1.81:8123", status: "unreachable" },
     ],
     validTokens: [KEVIN_TOKEN],
-    details: { version: "2026.10.1", haOs: true, addons: [{ slug: "core_ssh", state: "started" }], zha: "discovered" },
+    details: { version: "2026.10.1", haOs: true, addons: [{ slug: "core_ssh", state: "started" }], zha: "discovered", ip: { method: "dhcp", address: "192.168.1.81", iface: "enp0s18" } },
     servers: { "http://127.0.0.1:8080": { ok: true, version: "0.3.0", mqtt: "connected", ha: "disconnected" } },
     agents: { "gaming-pc": "online" },
     tasks: HOST_TASKS,

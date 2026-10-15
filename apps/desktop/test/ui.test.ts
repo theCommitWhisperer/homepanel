@@ -143,7 +143,7 @@ describe("UI server: system check and setup runs", () => {
   it("precheck as JSON and as a stream; modes carry the recommendation", async () => {
     const { base, H, api } = await setup({ scenario: "kevin" });
     const j = await api("/api/setup/precheck");
-    expect(j.body.recommendation).toMatchObject({ mode: "ha", fromStep: "mqtt" });
+    expect(j.body.recommendation).toMatchObject({ mode: "ha", fromStep: "staticip" });
     expect(j.body.checks.length).toBeGreaterThan(15);
     const evs = await sse(base + "/api/setup/precheck", H, (e) => e.type === "done");
     expect(evs[0]).toMatchObject({ type: "check", check: { state: "running" } });

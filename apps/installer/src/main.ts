@@ -22,11 +22,11 @@ import { color, consoleOut, inquirerPrompter, type Out, type Prompter } from "./
 import { plainWizard } from "./wizard.js";
 import { DEFAULT_HA_HOST } from "./constants.js";
 import { haHost, setHaAddress } from "./ha/address.js";
-import { HaClient, normalizeHaUrl } from "./ha/client.js";
+import { HaClient, normalizeHaUrl, resolveHaUrl } from "./ha/client.js";
 
 declare const __HOMEPANEL_VERSION__: string | undefined;
 /** Release version: injected by the HomePanel.exe bundler (apps/desktop/package.json); this fallback for source runs. */
-export const VERSION: string = typeof __HOMEPANEL_VERSION__ === "string" ? __HOMEPANEL_VERSION__ : "0.3.1";
+export const VERSION: string = typeof __HOMEPANEL_VERSION__ === "string" ? __HOMEPANEL_VERSION__ : "0.3.2";
 
 const HELP = `${color.bold("homepanel")} ${VERSION} — set up HomePanel and Home Assistant
 
@@ -138,7 +138,7 @@ async function haWizard(rest: string[], out: Out, prompt: Prompter): Promise<num
   const haArg = argValue(rest, "--ha");
   if (haArg) {
     try {
-      for (const c of setHaAddress(store, haArg)) out.ok(c);
+      for (const c of setHaAddress(store, (await resolveHaUrl(haArg)).url)) out.ok(c);
       store.mark("detect", "done", `set with --ha ${haArg}`);
     } catch {
       out.err(`--ha "${haArg}" doesn't look like an address. Example: --ha 192.168.1.81`);
@@ -449,7 +449,8 @@ async function haAddress(rest: string[], out: Out, deps: MainDeps): Promise<numb
   }
   let url: string;
   try {
-    url = normalizeHaUrl(input);
+    normalizeHaUrl(input);
+    url = (await resolveHaUrl(input)).url; // tries :8123 and :80 when no port is given
   } catch {
     out.err(`"${input}" doesn't look like an address. Example: homepanel ha-address 192.168.1.81`);
     return 2;

@@ -55,6 +55,8 @@ export interface HaDetails {
   addons?: { slug: string; state: string; version?: string }[];
   /** ZHA: config entry loaded / a discovered flow waits / nothing */
   zha: "loaded" | "discovered" | "none" | "unknown";
+  /** Home Assistant's own network address: static (fixed) or handed out by the router (DHCP) */
+  ip?: { method: "static" | "dhcp" | "other"; address?: string; iface?: string };
   error?: string;
 }
 
@@ -87,6 +89,8 @@ export interface PrecheckEnv {
   haSaved(): { state: SetupState; secrets: SecretsFile };
   /** mDNS + homeassistant.local + extra addresses, each on :8123 and :80 */
   findHa(extra: string[]): Promise<FoundHa[]>;
+  /** Remember where Home Assistant really answers (the setup state's own file; nothing else changes). */
+  rememberHa?(url: string): void;
   haPreparingProgress(url: string): Promise<string | undefined>;
   haTokenValid(url: string, token: string): Promise<boolean>;
   haDetails(url: string, token: string): Promise<HaDetails>;
@@ -128,6 +132,7 @@ export interface Facts {
     homepanelHealth?: boolean;
     homepanelUrl: string;
     zha: HaDetails["zha"];
+    ipMethod?: "static" | "dhcp" | "other";
   };
   agent: "online" | "offline" | "unregistered" | "unknown" | "none";
   lhm?: { ok: boolean; count: number };

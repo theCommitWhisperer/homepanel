@@ -29,7 +29,9 @@ export function normalizeHaUrl(input: string): string {
   let s = input.trim();
   if (!/^https?:\/\//i.test(s)) s = "http://" + s;
   const u = new URL(s);
-  if (!u.port && u.protocol === "http:" && !hasExplicitPort(input)) u.port = "8123";
+  // Only a bare host ("192.168.1.81") gets the classic :8123. A full URL without a port means port 80,
+  // exactly as a browser reads it — this is how newer HA OS answers, and how resolved URLs are saved.
+  if (!u.port && u.protocol === "http:" && !hasExplicitPort(input) && !/^https?:\/\//i.test(input.trim())) u.port = "8123";
   return `${u.protocol}//${u.host}`;
 }
 
@@ -131,11 +133,15 @@ interface SupervisorJob {
 
 /** REST + WebSocket client for the parts of the HA API the installer needs. */
 export class HaClient {
-  readonly url: string;
+  url: string;
   token?: string;
   private fetchImpl: typeof fetch;
 
-  constructor(url: string, opts: { token?: string; fetchImpl?: typeof fetch } = {}) {
+  /** Called when Home Assistant turned out to answer on the other port (8123 <-> 80); save it. */
+  onMoved?: (url: string) => void;
+
+  constructor(url: string, opts: { token?: string; fetchImpl?: typeof fetch; onMoved?: (url: string) => void } = {}) {
+    this.onMoved = opts.onMoved;
     // saved URLs are already resolved (port included, or none = port 80): don't guess a port here
     this.url = hasExplicitPort(url) || /^https?:\/\//i.test(url.trim()) ? cleanHaUrl(url) : normalizeHaUrl(url);
     this.token = opts.token;
@@ -174,6 +180,12 @@ export class HaClient {
       });
     } catch (e) {
       const err = e as Error & { cause?: { code?: string } };
+      // Connection refused/timed out: Home Assistant may answer on the other port (newer HA OS uses 80).
+      const alt = alternateHaUrl(this.url);
+      if (alt && (await isHomeAssistant(alt, this.fetchImpl))) {
+        this.moveTo(alt);
+        return this.request<T>(method, path, body, opts);
+      }
       throw new HaError(`Cannot reach Home Assistant at ${this.url}: ${err.cause?.code ?? err.message}`);
     }
     const text = await res.text();
@@ -328,7 +340,25 @@ export class HaClient {
   /* ---- websocket ---- */
   async ws(): Promise<HaSocket> {
     if (!this.token) throw new HaError("No Home Assistant token");
-    return HaSocket.connect(this.url, this.token);
+    try {
+      return await HaSocket.connect(this.url, this.token);
+    } catch (e) {
+      const alt = alternateHaUrl(this.url);
+      if (alt && (await isHomeAssistant(alt, this.fetchImpl))) {
+        this.moveTo(alt);
+        return HaSocket.connect(this.url, this.token);
+      }
+      throw e;
+    }
+  }
+
+  private moveTo(url: string) {
+    this.url = url;
+    try {
+      this.onMoved?.(url);
+    } catch {
+      /* saving is best effort */
+    }
   }
 
   /** Run a function with a connected socket, always closing it. */

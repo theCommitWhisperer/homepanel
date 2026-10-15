@@ -14,11 +14,12 @@ async function run(s: FakeScenario) {
 }
 
 describe("system check: Kevin's PC today", () => {
-  it("recommends the HA wizard at the MQTT step, then Move — with plain-English reasons", async () => {
+  it("recommends a fixed IP for Home Assistant first, then the rest of the HA wizard, then Move", async () => {
     const { recommendation: rec, by, facts } = await run(SCENARIOS.kevin!);
     expect(rec.mode).toBe("ha");
-    expect(rec.fromStep).toBe("mqtt");
-    expect(rec.title).toContain("MQTT");
+    expect(rec.fromStep).toBe("staticip");
+    expect(rec.title).toContain("Fixed IP");
+    expect(rec.why).toContain("fixed IP");
     expect(rec.why).toContain("http://192.168.1.81");
     expect(rec.why).toMatch(/Mosquitto app isn't installed/);
     expect(rec.why).toMatch(/HomePanel app isn't installed/);
@@ -29,6 +30,7 @@ describe("system check: Kevin's PC today", () => {
     expect(by["ha.found"]!.detail).toContain("port 80");
     expect(by["ha.token"]).toMatchObject({ state: "ok" });
     expect(by["ha.mosquitto"]).toMatchObject({ state: "warn", fix: { mode: "ha", fromStep: "mqtt" } });
+    expect(by["ha.ip"]).toMatchObject({ state: "warn", fix: { mode: "ha", fromStep: "staticip" } });
     expect(by["hp.app"]).toMatchObject({ state: "warn", fix: { mode: "ha", fromStep: "server" } });
     expect(by["hp.local"]).toMatchObject({ state: "ok" });
     expect(by["hp.agent"]).toMatchObject({ state: "ok" });
@@ -190,5 +192,34 @@ describe("real probe helpers", () => {
     const d = await haDetails(fake.url, "tok.x.y");
     expect(d).toMatchObject({ version: "2026.10.0", haOs: true, zha: "loaded" });
     expect(d.addons).toEqual([{ slug: "core_mosquitto", state: "started", version: "1.0" }]);
+  });
+});
+
+import { HaClient, normalizeHaUrl as norm } from "../src/ha/client.js";
+import { setHaAddress } from "../src/ha/address.js";
+
+describe("Home Assistant on port 80 stays on port 80 (regression)", () => {
+  it("saving a resolved http://ip URL keeps it portless instead of turning it back into :8123", () => {
+    expect(norm("http://192.168.1.81")).toBe("http://192.168.1.81");
+    expect(norm("192.168.1.81")).toBe("http://192.168.1.81:8123");
+    const state: Record<string, unknown> = {};
+    const store = { state, update: (p: Record<string, unknown>) => Object.assign(state, p) } as never;
+    setHaAddress(store, "http://192.168.1.81");
+    expect(state.haUrl).toBe("http://192.168.1.81");
+  });
+
+  it("a client with a stale :8123 address follows HA to port 80 and reports the move", async () => {
+    const f = (async (input: string | URL | Request) => {
+      const u = new URL(String(input));
+      if (u.port === "8123") throw Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
+      if (u.pathname === "/auth/providers") return new Response('[{"type":"homeassistant"}]', { status: 200 });
+      if (u.pathname === "/api/") return new Response('{"message":"API running."}', { status: 200 });
+      return new Response("", { status: 404 });
+    }) as typeof fetch;
+    const moved: string[] = [];
+    const c = new HaClient("http://192.168.1.81:8123", { fetchImpl: f, token: "t", onMoved: (u) => moved.push(u) });
+    expect(await c.apiOk()).toBe(true);
+    expect(c.url).toBe("http://192.168.1.81");
+    expect(moved).toEqual(["http://192.168.1.81"]);
   });
 });

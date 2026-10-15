@@ -1,3 +1,5 @@
+import { parseCidr, pickPrimary, type NetIface } from "../steps/static-ip.js";
+import { setHaAddress } from "../ha/address.js";
 /** The real probes behind the system check (read-only; short timeouts everywhere). */
 import { request as httpsRequest } from "node:https";
 import { release } from "node:os";
@@ -100,6 +102,19 @@ export async function haDetails(url: string, token: string): Promise<HaDetails> 
         error = (e as Error).message;
       }
     }
+    let ip: HaDetails["ip"];
+    if (haOs) {
+      try {
+        const net = await s.supervisor<{ interfaces?: NetIface[] }>("/network/info", "get", undefined, 10);
+        const nic = pickPrimary(net?.interfaces ?? []);
+        if (nic) {
+          const m = nic.ipv4?.method;
+          ip = { method: m === "static" ? "static" : m === "auto" || m === "dhcp" ? "dhcp" : "other", address: parseCidr(nic.ipv4?.address?.[0])?.ip, iface: nic.interface };
+        }
+      } catch {
+        /* keep unknown */
+      }
+    }
     let zha: HaDetails["zha"] = "unknown";
     try {
       const entries = await s.configEntries("zha");
@@ -111,7 +126,7 @@ export async function haDetails(url: string, token: string): Promise<HaDetails> 
     } catch {
       /* keep unknown */
     }
-    return { version: (cfg?.version as string | undefined) ?? s.haVersion, haOs, ...(addons ? { addons } : {}), zha, ...(error ? { error } : {}) };
+    return { version: (cfg?.version as string | undefined) ?? s.haVersion, haOs, ...(addons ? { addons } : {}), zha, ...(ip ? { ip } : {}), ...(error ? { error } : {}) };
   } finally {
     s.close();
   }
@@ -176,6 +191,9 @@ export function realPrecheckEnv(o: { ops?: WinOps; paths?: LocalPaths; fetchImpl
     haSaved() {
       const s = new StateStore(o.haHome);
       return { state: s.state, secrets: s.secrets };
+    },
+    rememberHa(url) {
+      setHaAddress(new StateStore(o.haHome), url);
     },
     async findHa(extra) {
       const r = await findHomeAssistant({ extra, mdnsMs: 2500, fetchImpl: f });

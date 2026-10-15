@@ -1,3 +1,4 @@
+import { setHaAddress } from "./ha/address.js";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,7 +47,14 @@ export function makeContext(o: {
     ha() {
       const url = o.store.state.haUrl;
       if (!url) throw new Error("Home Assistant address is not known yet (run the detect step).");
-      return new HaClient(url, { fetchImpl, token: o.store.secrets.haToken ?? o.store.secrets.haAccessToken });
+      return new HaClient(url, {
+        fetchImpl,
+        token: o.store.secrets.haToken ?? o.store.secrets.haAccessToken,
+        // HA answered on the other port (8123 <-> 80): remember it so every later step uses it
+        onMoved: (moved) => {
+          for (const c of setHaAddress(o.store, moved)) o.out.info(c);
+        },
+      });
     },
     async secret(label, opts = {}) {
       const pre = o.store.secrets.extra?.[label];
