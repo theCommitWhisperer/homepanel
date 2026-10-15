@@ -26,7 +26,7 @@ import { HaClient, normalizeHaUrl } from "./ha/client.js";
 
 declare const __HOMEPANEL_VERSION__: string | undefined;
 /** Release version: injected by the HomePanel.exe bundler (apps/desktop/package.json); this fallback for source runs. */
-export const VERSION: string = typeof __HOMEPANEL_VERSION__ === "string" ? __HOMEPANEL_VERSION__ : "0.3.0";
+export const VERSION: string = typeof __HOMEPANEL_VERSION__ === "string" ? __HOMEPANEL_VERSION__ : "0.3.1";
 
 const HELP = `${color.bold("homepanel")} ${VERSION} — set up HomePanel and Home Assistant
 

@@ -1,6 +1,6 @@
 {
   "name": "@homepanel/agent",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "description": "HomePanel PC agent: hardware sensors, drives and allowlisted actions over MQTT",
