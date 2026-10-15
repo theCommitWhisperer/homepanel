@@ -1,3 +1,4 @@
+import { findReachableHa } from "./ha/address.js";
 import { HaClient } from "./ha/client.js";
 import { serverHealth } from "./steps/server.js";
 import { adminLogin } from "./steps/pcs.js";
@@ -24,11 +25,18 @@ export async function runChecks(store: StateStore, fetchImpl: typeof fetch = glo
     const client = new HaClient(st.haUrl, { fetchImpl, token: sec.haToken });
     const s = await client.onboardingStatus();
     if (s.state === "unreachable") {
+      const alt = await findReachableHa(fetchImpl, st.haUrl);
+      const hint = alt && alt !== st.haUrl ? ` (found Home Assistant answering at ${alt})` : "";
+      const fix =
+        alt && alt !== st.haUrl
+          ? `Run \`homepanel ha-address ${alt}\` to switch to it, or \`homepanel setup --step staticip\` to fix its IP.`
+          : "Is it powered on and on the network? Check the IP in your router (HA OS also shows it on an attached monitor), " +
+            "then run `homepanel ha-address <ip>`. Keep it fixed with `homepanel setup --step staticip`.";
       checks.push({
         name: "Home Assistant reachable",
         ok: false,
-        detail: `${st.haUrl}: ${s.error}`,
-        fix: "Is it powered on and on the network? Check the IP in your router; HA OS shows its IP on an attached monitor.",
+        detail: `${st.haUrl}: ${s.error}${hint}`,
+        fix,
       });
     } else {
       checks.push({ name: "Home Assistant reachable", ok: true, detail: `${st.haUrl} (${s.state})` });

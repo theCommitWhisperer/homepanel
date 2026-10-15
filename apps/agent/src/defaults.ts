@@ -26,6 +26,7 @@ name: ${yq(o.name)}
 
 mqtt:
   url: ${yq(o.mqttUrl)}          # the Mosquitto broker (Home Assistant's Mosquitto app)
+  fallbackHosts: ['homeassistant.local']   # tried if the primary broker is unreachable
   username: ${yq(o.mqttUser ?? "homepanel")}
   password: ${yq(o.mqttPass ?? "")}
 
@@ -106,7 +107,7 @@ actions:
 export const EXAMPLE_INIT: InitOptions = {
   pcId: "gaming-pc",
   name: "Gaming PC",
-  mqttUrl: "mqtt://homeassistant.local:1883",
+  mqttUrl: "mqtt://192.168.1.81:1883",
   mqttUser: "homepanel",
   mqttPass: "change-me",
   key: "paste-the-key-from-homepanel-admin",

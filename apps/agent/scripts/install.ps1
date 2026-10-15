@@ -23,7 +23,7 @@
 
   Compatible with Windows PowerShell 5.1.
 
-.PARAMETER Server      MQTT broker host (your Home Assistant mini PC), e.g. 192.168.1.20 or homeassistant.local
+.PARAMETER Server      MQTT broker host (your Home Assistant mini PC), e.g. 192.168.1.81 or homeassistant.local
 .PARAMETER MqttPort    MQTT port (default 1883)
 .PARAMETER MqttUser    MQTT username
 .PARAMETER MqttPass    MQTT password
@@ -159,7 +159,7 @@ if (Test-Path $configPath) {
 } else {
   Say 'Connection details. In HomePanel admin open PCs -> Add: it shows the PC id and its key.' Cyan
   $defaultId = ($env:COMPUTERNAME.ToLower() -replace '[^a-z0-9]+', '-').Trim('-')
-  if (-not $Server) { $Server = Ask 'MQTT broker address (your Home Assistant mini PC)' 'homeassistant.local' }
+  if (-not $Server) { $Server = Ask 'MQTT broker address (your Home Assistant mini PC)' '192.168.1.81' }
   if (-not $MqttUser) { $MqttUser = Ask 'MQTT username' 'homepanel' }
   if (-not $PSBoundParameters.ContainsKey('MqttPass')) {
     $sec = Read-Host 'MQTT password' -AsSecureString

@@ -295,6 +295,23 @@ export async function startFakeHa(
             }
             if (action === "options") return ok(null);
           }
+          if (m.endpoint === "/network/info") {
+            return ok({
+              interfaces: [
+                {
+                  interface: "eth0",
+                  type: "ethernet",
+                  enabled: true,
+                  connected: true,
+                  primary: true,
+                  ipv4: { method: "dhcp", address: ["192.168.1.150/24"], gateway: "192.168.1.1", nameservers: ["192.168.1.1"] },
+                },
+              ],
+            });
+          }
+          if (/^\/network\/interface\/[^/]+\/update$/.test(m.endpoint)) {
+            return ok(null);
+          }
           return fail("error", `unhandled ${m.endpoint}`);
         }
         default:

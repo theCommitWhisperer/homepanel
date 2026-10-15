@@ -20,6 +20,9 @@ import { ALL_STEPS } from "./steps/index.js";
 import { adminLogin, agentYaml, registerAgent } from "./steps/pcs.js";
 import { color, consoleOut, inquirerPrompter, type Out, type Prompter } from "./ui.js";
 import { plainWizard } from "./wizard.js";
+import { DEFAULT_HA_HOST } from "./constants.js";
+import { haHost, setHaAddress } from "./ha/address.js";
+import { HaClient, normalizeHaUrl } from "./ha/client.js";
 
 declare const __HOMEPANEL_VERSION__: string | undefined;
 /** Release version: injected by the HomePanel.exe bundler (apps/desktop/package.json); this fallback for source runs. */
@@ -29,7 +32,8 @@ const HELP = `${color.bold("homepanel")} ${VERSION} — set up HomePanel and Hom
 
 Usage:
   homepanel setup [--mode host|join|ha|move] [--yes] [--server <url>]
-  homepanel setup --mode ha [--ai | --plain] [--step <id>] [--redo] [--reset]
+  homepanel setup --mode ha [--ai | --plain] [--step <id>] [--redo] [--reset] [--ha <ip|url>]
+  homepanel ha-address [<ip|url>]
   homepanel agent-key <pcId> [--name <name>] [--mac <aa:bb:..>]
   homepanel screens [ipad|fire-hd8|android|pi|windows]
   homepanel doctor
@@ -47,7 +51,10 @@ setup     Start menu (double-clicking HomePanel.exe does the same):
           --yes        accept every "do this?" question (exact actions are still printed)
           --server     server address for join / move, e.g. 192.168.1.20
           --reset      forget saved progress (secrets are kept)
-          HA wizard only: --step <id>, --redo, --ai, --plain
+          HA wizard only: --step <id>, --redo, --ai, --plain, --ha <addr>
+ha-address Show or change the saved Home Assistant address. The HomePanel server URL and
+          MQTT host follow it. Without an argument it shows the current one and asks.
+          To make Home Assistant itself keep a fixed IP: \`homepanel setup --step staticip\`.
 agent-key Register a PC with the HomePanel server (admin API) and write its agent.yaml.
 screens   Print setup steps for a screen (iPad, Fire HD 8, Android, Pi, Windows).
 doctor    Check Home Assistant, the token, MQTT, the HomePanel server and PC agents.
@@ -55,10 +62,11 @@ host-key  Show a host's SSH key fingerprint (compare it before trusting the Prox
 steps     List the Home Assistant wizard steps.
 
 Environment: HOMEPANEL_HOME (HA wizard state, default ~/.homepanel);
-             HOMEPANEL_ADMIN_PASSWORD / HOMEPANEL_MQTT_PASSWORD (join without prompts)
+             HOMEPANEL_ADMIN_PASSWORD / HOMEPANEL_MQTT_PASSWORD (join without prompts);
+             HOMEPANEL_HA_HOST (default Home Assistant address, default ${DEFAULT_HA_HOST})
 `;
 
-const COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "host-key", "help", "--help", "-h", "--version", "-v", "version"]);
+const COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "host-key", "ha-address", "help", "--help", "-h", "--version", "-v", "version"]);
 
 function argValue(args: string[], name: string): string | undefined {
   const i = args.indexOf(name);
@@ -126,6 +134,16 @@ async function haWizard(rest: string[], out: Out, prompt: Prompter): Promise<num
   if (rest.includes("--reset")) {
     store.reset();
     out.ok("Progress cleared.");
+  }
+  const haArg = argValue(rest, "--ha");
+  if (haArg) {
+    try {
+      for (const c of setHaAddress(store, haArg)) out.ok(c);
+      store.mark("detect", "done", `set with --ha ${haArg}`);
+    } catch {
+      out.err(`--ha "${haArg}" doesn't look like an address. Example: --ha 192.168.1.81`);
+      return 2;
+    }
   }
   const ctx = makeContext({ store, out, prompt });
   out.line(color.bold(color.cyan("\nHomePanel setup — Home Assistant")));
@@ -303,6 +321,7 @@ export async function main(argv: string[], deps: MainDeps = {}): Promise<number>
     }
     if (cmd === "agent-key") return await agentKey(rest, out, deps);
     if (cmd === "host-key") return await hostKey(rest, out);
+    if (cmd === "ha-address") return await haAddress(rest, out, deps);
     if (cmd === "doctor") return await doctor(doctorStore(deps.ops ?? defaultOps()), out);
     if (cmd === "setup") {
       if (rest.includes("--help") || rest.includes("-h")) {
@@ -406,5 +425,41 @@ async function agentKey(rest: string[], out: Out, deps: MainDeps): Promise<numbe
   store.update({ agents: [...(store.state.agents ?? []).filter((a) => a.pcId !== pcId), { pcId, name }] });
   out.ok(`Registered ${pcId}. Key: ${r.key}`);
   out.ok(`Wrote ${file} — easier: run HomePanel.exe on that PC and choose "Join this PC".`);
+  return 0;
+}
+
+async function haAddress(rest: string[], out: Out, deps: MainDeps): Promise<number> {
+  const store = new StateStore();
+  let input = rest[0];
+  out.info(`Saved Home Assistant address: ${store.state.haUrl ?? "(none)"}`);
+  if (!input) {
+    const prompt = deps.prompt ?? (await inquirerPrompter());
+    input = await prompt.input({
+      message: "New Home Assistant address (IP or URL):",
+      default: store.state.host ?? DEFAULT_HA_HOST,
+      validate: (v) => {
+        try {
+          normalizeHaUrl(v);
+          return true;
+        } catch {
+          return "That doesn't look like an address";
+        }
+      },
+    });
+  }
+  let url: string;
+  try {
+    url = normalizeHaUrl(input);
+  } catch {
+    out.err(`"${input}" doesn't look like an address. Example: homepanel ha-address 192.168.1.81`);
+    return 2;
+  }
+  const s = await new HaClient(url).onboardingStatus();
+  if (s.state === "unreachable") out.warn(`Nothing answers at ${url} right now (${s.error}). Saving it anyway.`);
+  else out.ok(`Home Assistant answers at ${url}.`);
+  const changes = setHaAddress(store, url);
+  for (const c of changes) out.ok(c);
+  if (!changes.length) out.info("Nothing changed.");
+  out.info("Make Home Assistant keep this address: `homepanel setup --step staticip`.");
   return 0;
 }

@@ -69,8 +69,23 @@ export class Agent {
   start(): Promise<void> {
     const { mqtt: m, pcId } = this.cfg;
     const connect = this.opts.connect ?? mqtt.connect;
+    const servers: { host: string; port: number; protocol?: any }[] = [];
+    try {
+      const u = new URL(m.url);
+      const primaryPort = Number(u.port) || (u.protocol.startsWith("mqtts") ? 8883 : 1883);
+      const primaryProtocol = u.protocol.replace(/:$/, "") as any;
+      servers.push({ host: u.hostname, port: primaryPort, protocol: primaryProtocol });
+      for (const fb of m.fallbackHosts ?? []) {
+        if (fb && fb !== u.hostname && !servers.some((s) => s.host === fb)) {
+          servers.push({ host: fb, port: primaryPort, protocol: primaryProtocol });
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    const fbInfo = servers.length > 1 ? ` (fallbacks: ${servers.slice(1).map((s) => s.host).join(", ")})` : "";
     log.info(
-      `HomePanel agent ${AGENT_VERSION} starting: pc=${pcId} broker=${m.url} sensors=${this.source.name}` +
+      `HomePanel agent ${AGENT_VERSION} starting: pc=${pcId} broker=${m.url}${fbInfo} sensors=${this.source.name}` +
         `${this.opts.mock ? " (MOCK)" : ""}${this.dryRun ? " actions=dry-run" : ""}`,
     );
     const client = connect(m.url, {
@@ -82,12 +97,13 @@ export class Agent {
       keepalive: 30,
       reconnectPeriod: 5000,
       connectTimeout: 15_000,
+      ...(servers.length > 1 ? { servers } : {}),
       will: { topic: topics.status(pcId), payload: Buffer.from("offline"), qos: 1, retain: true },
     });
     this.client = client;
 
     client.on("connect", () => {
-      log.info(`connected to MQTT ${m.url}`);
+      log.info(`connected to MQTT broker`);
       // a fresh session: re-announce everything retained
       this.discovered.clear();
       client.publish(topics.status(pcId), "online", { qos: 1, retain: true });

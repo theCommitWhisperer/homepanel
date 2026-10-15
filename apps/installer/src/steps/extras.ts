@@ -1,4 +1,5 @@
 import { COMMUNITY_ADDONS_REPO, SERVER_PORT, TAILSCALE_SLUG } from "../constants.js";
+import { haHost } from "../ha/address.js";
 import type { FlowResult } from "../ha/client.js";
 import { SCREEN_GUIDES } from "../guides.js";
 import { ensureAppRunning } from "./mqtt.js";
@@ -241,7 +242,7 @@ export const remoteStep: Step = {
 /* ------------------------------------------------------------------ */
 
 export function pairUrl(ctx: Pick<StepContext, "store">) {
-  return ctx.store.state.serverUrl ?? `http://${ctx.store.state.host ?? "homeassistant.local"}:${SERVER_PORT}`;
+  return ctx.store.state.serverUrl ?? `http://${haHost(ctx.store)}:${SERVER_PORT}`;
 }
 
 export const screensStep: Step = {

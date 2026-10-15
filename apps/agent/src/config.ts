@@ -89,6 +89,13 @@ export const AgentConfigSchema = z
         clientId: z.string().optional(),
         /** for mqtts with a self-signed broker certificate */
         rejectUnauthorized: z.boolean().default(true),
+        /**
+         * Other host names/IPs for the same broker, tried in turn when the one in `url` doesn't answer
+         * (e.g. the IP changed). Same port and protocol as `url`. Set [] to disable.
+         */
+        fallbackHosts: z
+          .array(z.string().regex(/^[A-Za-z0-9.\-:[\]]+$/, "must be a host name or IP"))
+          .default(["homeassistant.local"]),
       })
       .strict(),
     /** shared secret from the server's admin "Add computer" dialog */

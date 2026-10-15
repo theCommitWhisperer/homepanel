@@ -1,6 +1,7 @@
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import YAML from "yaml";
+import { haHost } from "../ha/address.js";
 import { homepanelHome } from "../state.js";
 import type { Step, StepContext } from "./types.js";
 
@@ -105,7 +106,7 @@ export const pcsStep: Step = {
     const yaml = agentYaml({
       pcId,
       name,
-      mqttUrl: `mqtt://${m?.host === "127.0.0.1" ? (ctx.store.state.serverUrl ? new URL(ctx.store.state.serverUrl).hostname : "<server-ip>") : (m?.host ?? ctx.store.state.host ?? "homeassistant.local")}:${m?.port ?? 1883}`,
+      mqttUrl: `mqtt://${m?.host === "127.0.0.1" ? (ctx.store.state.serverUrl ? new URL(ctx.store.state.serverUrl).hostname : "<server-ip>") : (m?.host ?? haHost(ctx.store))}:${m?.port ?? 1883}`,
       mqttUser: m?.username,
       mqttPass: ctx.store.secrets.mqttPassword,
       key: key ?? "PASTE-KEY-FROM-ADMIN-PAGE",

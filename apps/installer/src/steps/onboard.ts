@@ -1,8 +1,8 @@
-import { saveHaUrl } from "./detect.js";
+import { findReachableHa, haCandidates } from "../ha/address.js";
 import { HaClient, HaError, type CoreLocation } from "../ha/client.js";
 import { waitForHa } from "../ha/discover.js";
 import { hooks } from "../bridge/hooks.js";
-import { detectHaOs } from "./detect.js";
+import { detectHaOs, saveHaUrl } from "./detect.js";
 import type { Step, StepContext } from "./types.js";
 
 export interface OnboardInput {
@@ -90,7 +90,16 @@ export const onboardStep: Step = {
     "you'll log in with your existing owner account instead so the installer can create a token.",
   async detect(ctx) {
     if (!ctx.store.state.haUrl) return { done: false, detail: "Home Assistant address unknown." };
-    const s = await new HaClient(ctx.store.state.haUrl, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
+    let url = ctx.store.state.haUrl;
+    let s = await new HaClient(url, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
+    if (s.state === "unreachable") {
+      const alt = await findReachableHa(ctx.fetchImpl, url);
+      if (alt && alt !== url) {
+        await saveHaUrl(ctx, alt);
+        url = alt;
+        s = await new HaClient(url, { fetchImpl: ctx.fetchImpl }).onboardingStatus();
+      }
+    }
     if (s.state === "onboarded") return { done: true, detail: "Home Assistant is already onboarded." };
     if (s.state === "onboarding") return { done: false, detail: "Home Assistant is waiting for onboarding." };
     if (s.state === "preparing") return { done: false, detail: "Home Assistant OS is still preparing (first boot downloads ~700 MB; 10–20 min)." };
@@ -103,13 +112,22 @@ export const onboardStep: Step = {
       out.err("No Home Assistant address yet — run the 'detect' step first.");
       return "failed";
     }
-    out.info(`Waiting for Home Assistant at ${url} (first boot downloads ~700 MB and can take 10–20 minutes)…`);
+    const candidates = haCandidates(url);
+    out.info(
+      `Waiting for Home Assistant at ${url}${candidates.length > 1 ? ` (also probing ${candidates.slice(1).join(", ")})` : ""} (first boot downloads ~700 MB and can take 10–20 minutes)…`,
+    );
     let last = -60;
     let lastState = "";
-    const up = await waitForHa(url, {
+    const up = await waitForHa(candidates, {
       fetchImpl: ctx.fetchImpl,
       timeoutMs: 30 * 60_000,
       intervalMs: ctx.noWait ? 1 : 5000,
+      onFound: (foundUrl) => {
+        if (foundUrl !== url) {
+          out.info(`Home Assistant answered at ${foundUrl}; switching saved address.`);
+          void saveHaUrl(ctx, foundUrl);
+        }
+      },
       onTick: (s, state, progress) => {
         const pct = progress ? /(\d+)%/.exec(progress)?.[1] : undefined;
         hooks().progress?.({
@@ -220,17 +238,37 @@ export const tokenStep: Step = {
   async detect(ctx) {
     const t = ctx.store.secrets.haToken;
     if (!t || !ctx.store.state.haUrl) return { done: false, detail: "No token yet." };
-    const ok = await new HaClient(ctx.store.state.haUrl, { token: t, fetchImpl: ctx.fetchImpl }).apiOk();
+    let url = ctx.store.state.haUrl;
+    let ok = await new HaClient(url, { token: t, fetchImpl: ctx.fetchImpl }).apiOk();
+    if (!ok) {
+      const alt = await findReachableHa(ctx.fetchImpl, url);
+      if (alt && alt !== url) {
+        const altOk = await new HaClient(alt, { token: t, fetchImpl: ctx.fetchImpl }).apiOk();
+        if (altOk) {
+          await saveHaUrl(ctx, alt);
+          return { done: true, detail: `Token works (switched to ${alt}).` };
+        }
+      }
+    }
     return ok ? { done: true, detail: "Token works." } : { done: false, detail: "Saved token is rejected or HA is unreachable." };
   },
   async run(ctx) {
     const { out, prompt } = ctx;
-    const url = ctx.store.state.haUrl;
+    let url = ctx.store.state.haUrl;
     if (!url) {
       out.err("No Home Assistant address yet.");
       return "failed";
     }
-    const client = new HaClient(url, { fetchImpl: ctx.fetchImpl, token: ctx.store.secrets.haAccessToken });
+    let client = new HaClient(url, { fetchImpl: ctx.fetchImpl, token: ctx.store.secrets.haAccessToken });
+    if (!(await client.reachable(2000))) {
+      const alt = await findReachableHa(ctx.fetchImpl, url);
+      if (alt && alt !== url) {
+        out.info(`Home Assistant reachable at ${alt}; switching saved address.`);
+        await saveHaUrl(ctx, alt);
+        url = alt;
+        client = new HaClient(url, { fetchImpl: ctx.fetchImpl, token: ctx.store.secrets.haAccessToken });
+      }
+    }
     if (!client.token || !(await client.apiOk())) {
       const how = await prompt.select({
         message: "To create the token the installer must log in to Home Assistant once. How?",

@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { HOMEPANEL_APP_REPO, HOMEPANEL_APP_SLUG_SUFFIX, SERVER_PORT } from "../constants.js";
+import { haHost } from "../ha/address.js";
 import type { HaSocket } from "../ha/client.js";
 import { lanIps, showCmd } from "../sys.js";
 import { writeDockerEnv } from "./host.js";
@@ -93,7 +94,7 @@ export const serverStep: Step = {
   async run(ctx) {
     const { out, prompt } = ctx;
     await ensureAdminPassword(ctx);
-    const host = ctx.store.state.host ?? "homeassistant.local";
+    const host = haHost(ctx.store);
     ctx.store.update({ serverUrl: ctx.store.state.serverUrl ?? `http://${host}:${SERVER_PORT}` });
 
     if (ctx.store.state.haOs === false) {

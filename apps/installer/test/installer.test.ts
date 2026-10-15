@@ -22,6 +22,11 @@ import { mqttStep } from "../src/steps/mqtt.js";
 import { doorbellStep, zigbeeStep } from "../src/steps/extras.js";
 import { loginWithPassword } from "../src/steps/onboard.js";
 import { envStep, healthStep, healthSummary } from "../src/steps/finish.js";
+import { detectStep } from "../src/steps/detect.js";
+import { staticIpStep, parseCidr, networkOf, validHostIn, staticIpPayload, nmcliCommands } from "../src/steps/static-ip.js";
+import { setHaAddress, haCandidates, findReachableHa } from "../src/ha/address.js";
+import { waitForHa } from "../src/ha/discover.js";
+import { DEFAULT_HA_HOST } from "../src/constants.js";
 
 let ha: FakeHa | undefined;
 let dir: string;
@@ -158,7 +163,8 @@ describe("state + step selection", () => {
   it("step order depends on host type", () => {
     expect(stepsFor("linux-docker").map((s) => s.id)[0]).toBe("host");
     expect(stepsFor("linux-docker").map((s) => s.id)).not.toContain("detect");
-    expect(stepsFor("x86-bare-metal").map((s) => s.id).slice(0, 4)).toEqual(["detect", "host", "onboard", "token"]);
+    expect(stepsFor("x86-bare-metal").map((s) => s.id).slice(0, 5)).toEqual(["detect", "host", "onboard", "token", "staticip"]);
+    expect(stepsFor("linux-docker").map((s) => s.id)).toContain("staticip");
     expect(stepsFor(undefined).length).toBe(STEP_IDS.length);
   });
 
@@ -305,5 +311,110 @@ describe("already-onboarded HA, env file, ZHA and health", () => {
     expect(env).toContain("MQTT_PASS=mq-pass-xyz");
     expect(env).toMatch(/ADMIN_PASSWORD=.{16}/);
     if (process.platform !== "win32") expect(statSync(join(envDir, ".env")).mode & 0o777).toBe(0o600);
+  });
+});
+
+describe("address management, fail-safes and static IP automation", () => {
+  it("setHaAddress updates haUrl, host, serverUrl, and MQTT host synchronously", () => {
+    const store = new StateStore(dir);
+    store.update({
+      haUrl: "http://homeassistant.local:8123",
+      host: "homeassistant.local",
+      serverUrl: "http://homeassistant.local:8080",
+      mqtt: { host: "homeassistant.local", port: 1883, username: "homepanel" },
+    });
+
+    const changed = setHaAddress(store, "192.168.1.81");
+    expect(changed.length).toBe(3);
+    expect(store.state.haUrl).toBe("http://192.168.1.81:8123");
+    expect(store.state.host).toBe("192.168.1.81");
+    expect(store.state.serverUrl).toBe("http://192.168.1.81:8080");
+    expect(store.state.mqtt?.host).toBe("192.168.1.81");
+  });
+
+  it("haCandidates probes default IP before mDNS fallback", () => {
+    expect(DEFAULT_HA_HOST).toBe("192.168.1.81");
+    const candidates = haCandidates("http://192.168.1.99:8123");
+    expect(candidates).toEqual([
+      "http://192.168.1.99:8123",
+      "http://192.168.1.81:8123",
+      "http://homeassistant.local:8123",
+    ]);
+  });
+
+  it("IPv4 helpers validate subnet boundaries and static IP payload", () => {
+    const cidr = parseCidr("192.168.1.150/24");
+    expect(cidr).toEqual({ ip: "192.168.1.150", prefix: 24 });
+    expect(networkOf("192.168.1.150", 24)).toBe("192.168.1.0");
+
+    expect(validHostIn("192.168.1.81", cidr!)).toBe(true);
+    expect(validHostIn("192.168.2.81", cidr!)).toBe(false);
+    expect(validHostIn("192.168.1.0", cidr!)).toBe(false); // network
+    expect(validHostIn("192.168.1.255", cidr!)).toBe(false); // broadcast
+
+    const payload = staticIpPayload("192.168.1.81", 24, "192.168.1.1", ["192.168.1.1"]);
+    expect(payload).toEqual({
+      ipv4: {
+        method: "static",
+        address: ["192.168.1.81/24"],
+        gateway: "192.168.1.1",
+        nameservers: ["192.168.1.1"],
+      },
+    });
+
+    const nmcli = nmcliCommands("Wired connection 1", "192.168.1.81", 24, "192.168.1.1", ["192.168.1.1"]);
+    expect(nmcli[0]).toContain("ipv4.method");
+    expect(nmcli[0]).toContain("192.168.1.81/24");
+    expect(nmcli[1]).toEqual(["nmcli", "con", "up", "Wired connection 1"]);
+  });
+
+  it("staticIpStep updates network interface on HA OS via Supervisor API", async () => {
+    ha = await startFakeHa({ haOs: true, onboarded: true });
+    ha.state.accessTokens.add("tok-supervisor");
+    const store = new StateStore(dir);
+    store.update({ haUrl: ha.url, host: "127.0.0.1", haOs: true });
+    store.setSecret("haToken", "tok-supervisor");
+
+    const prompt = scriptedPrompter([
+      "192.168.1.81", // static IP
+      "192.168.1.1",  // gateway
+      true,           // confirm apply
+    ]);
+    const out = memoryOut();
+    const mockExec: Exec = async (cmd, args) => {
+      if (cmd === "ping") return { code: 1, stdout: "unreachable", stderr: "" }; // not in use
+      return { code: 0, stdout: "", stderr: "" };
+    };
+    const ctx = makeContext({ store, out, prompt, exec: mockExec, fetchImpl: fetch, repoRoot: dir, noWait: true });
+
+    const status = await runStep(ctx, staticIpStep);
+    expect(status).toBe("done");
+
+    const updateCall = ha.state.supervisorCalls.find((c) => /interface\/eth0\/update/.test(c.endpoint));
+    expect(updateCall).toBeTruthy();
+    expect(updateCall?.method).toBe("post");
+    expect(updateCall?.data).toMatchObject({
+      ipv4: {
+        method: "static",
+        address: ["192.168.1.81/24"],
+        gateway: "192.168.1.1",
+      },
+    });
+    expect(store.state.host).toBe("192.168.1.81");
+  });
+
+  it("waitForHa probes multiple URLs and triggers onFound callback", async () => {
+    ha = await startFakeHa({ onboarded: true });
+    let foundUrl: string | undefined;
+    const ok = await waitForHa(["http://127.0.0.1:1", ha.url], {
+      fetchImpl: fetch,
+      timeoutMs: 2000,
+      intervalMs: 100,
+      onFound: (u) => {
+        foundUrl = u;
+      },
+    });
+    expect(ok).toBe(ha.url);
+    expect(foundUrl).toBe(ha.url);
   });
 });

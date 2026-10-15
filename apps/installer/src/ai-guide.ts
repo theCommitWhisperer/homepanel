@@ -46,7 +46,7 @@ export function guideTools(ctx: StepContext): ToolDef[] {
     },
     {
       name: "scan_network",
-      description: "Look for Home Assistant on the local network (mDNS + homeassistant.local + optional extra host).",
+      description: "Look for Home Assistant on the local network (default IP + mDNS + homeassistant.local + optional extra host).",
       parameters: { type: "object", properties: { extra_host: { type: "string", description: "IP or URL to probe too" } } },
       kind: "look",
       run: async (a: { extra_host?: string }) =>

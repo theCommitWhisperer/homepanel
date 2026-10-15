@@ -7,6 +7,7 @@ import { mqttStep } from "./mqtt.js";
 import { onboardStep, tokenStep } from "./onboard.js";
 import { pcsStep } from "./pcs.js";
 import { serverStep } from "./server.js";
+import { staticIpStep } from "./static-ip.js";
 import type { Step } from "./types.js";
 
 export const ALL_STEPS: Step[] = [
@@ -14,6 +15,7 @@ export const ALL_STEPS: Step[] = [
   hostStep,
   onboardStep,
   tokenStep,
+  staticIpStep,
   mqttStep,
   serverStep,
   envStep,
@@ -37,14 +39,14 @@ export function stepsFor(host: HostType | undefined): Step[] {
     switch (host) {
       case "linux-docker":
         // the installer creates HA on this machine, so there is nothing to discover first
-        return ["host", "onboard", "token", "mqtt", "server", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
+        return ["host", "onboard", "token", "staticip", "mqtt", "server", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
       case "vm-windows":
       case "nas-proxmox":
       case "proxmox":
       case "x86-bare-metal":
       case "raspberry-pi":
       case "ha-green":
-        return ["detect", "host", "onboard", "token", "mqtt", "server", "env", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
+        return ["detect", "host", "onboard", "token", "staticip", "mqtt", "server", "env", "zigbee", "doorbells", "remote", "screens", "pcs", "health"];
       default:
         return STEP_IDS;
     }

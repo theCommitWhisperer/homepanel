@@ -3,7 +3,7 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
-import { HAOS_IMAGES, HAOS_VERSION, HOMEPANEL_RAW_BASE, MIN_DOCKER_ENGINE } from "../constants.js";
+import { DEFAULT_HA_HOST, HAOS_IMAGES, HAOS_VERSION, HOMEPANEL_RAW_BASE, MDNS_HA_HOST, MIN_DOCKER_ENGINE } from "../constants.js";
 import {
   GREEN_GUIDE,
   HOST_TYPES,
@@ -21,7 +21,7 @@ import { hooks } from "../bridge/hooks.js";
 import { randomPassword, showCmd, type Exec } from "../sys.js";
 import { HaClient } from "../ha/client.js";
 import { setupProxmox } from "../proxmox/setup.js";
-import { saveHaUrl } from "./detect.js";
+import { askHaAddress, saveHaUrl } from "./detect.js";
 import type { Step, StepContext } from "./types.js";
 
 /* ------------------------------------------------------------------ */
@@ -407,10 +407,10 @@ export const hostStep: Step = {
     }
     printHostGuide(ctx, t);
     if (!ctx.store.state.haUrl) {
-      const addr = await prompt.input({
-        message: "When it's installed, what's its address? (Enter = homeassistant.local)",
-        default: "homeassistant.local",
-      });
+      const addr = await askHaAddress(
+        ctx,
+        `When it's installed, what's its address? (Enter = ${DEFAULT_HA_HOST}; ${MDNS_HA_HOST} also works if your network supports mDNS)`,
+      );
       await saveHaUrl(ctx, addr);
     }
     return "manual";

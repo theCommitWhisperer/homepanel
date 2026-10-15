@@ -1,4 +1,5 @@
 import { MOSQUITTO_SLUG, MQTT_HA_USERNAME } from "../constants.js";
+import { haHost } from "../ha/address.js";
 import type { FlowResult, HaClient, HaSocket } from "../ha/client.js";
 import { randomPassword } from "../sys.js";
 import type { Step, StepContext } from "./types.js";
@@ -200,7 +201,7 @@ export const mqttStep: Step = {
         ctx.vault.add("mqttPassword", pw);
         out.ok(`HA user '${MQTT_HA_USERNAME}' ${r} for broker logins.`);
       });
-      ctx.store.update({ mqtt: { host: ctx.store.state.host ?? "homeassistant.local", port: 1883, username: MQTT_HA_USERNAME } });
+      ctx.store.update({ mqtt: { host: haHost(ctx.store), port: 1883, username: MQTT_HA_USERNAME } });
     } catch (e) {
       ok = false;
       out.warn(`Automatic Mosquitto setup failed: ${(e as Error).message}`);

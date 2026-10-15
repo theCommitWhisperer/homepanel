@@ -222,7 +222,7 @@ function cmdInit(p: Parsed) {
   const yaml = defaultConfigYaml({
     pcId: str(p.flags["pc-id"]) ?? suggestedPcId(),
     name: str(p.flags.name) ?? (process.env.HOMEPANEL_INIT_NAME || hostname()),
-    mqttUrl: str(p.flags["mqtt-url"]) ?? "mqtt://homeassistant.local:1883",
+    mqttUrl: str(p.flags["mqtt-url"]) ?? "mqtt://192.168.1.81:1883",
     mqttUser: str(p.flags["mqtt-user"]) ?? "homepanel",
     // install.ps1 passes secrets via the environment (PowerShell 5.1 argument quoting is lossy)
     mqttPass: str(p.flags["mqtt-pass"]) ?? process.env.HOMEPANEL_INIT_MQTT_PASS ?? "",

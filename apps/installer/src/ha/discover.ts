@@ -1,3 +1,4 @@
+import { DEFAULT_HA_HOST, HA_PORT, MDNS_HA_HOST } from "../constants.js";
 import { HaClient, alternateHaUrl, normalizeHaUrl, type OnboardingStatus } from "./client.js";
 
 export interface FoundHa {
@@ -78,8 +79,8 @@ export async function browseMdns(timeoutMs = 3000): Promise<FoundHa[]> {
 }
 
 /**
- * Find Home Assistant: mDNS + http://homeassistant.local:8123 + any extra hosts the user gives.
- * Each candidate is checked with GET /api/onboarding.
+ * Find Home Assistant: any extra hosts the user gives + the default IP (DEFAULT_HA_HOST) + mDNS +
+ * http://homeassistant.local:8123. Each candidate is checked with GET /api/onboarding.
  */
 export async function findHomeAssistant(
   opts: { extra?: string[]; mdnsMs?: number; fetchImpl?: typeof fetch; skipMdns?: boolean } = {},
@@ -104,9 +105,10 @@ export async function findHomeAssistant(
     }
   };
   for (const e of opts.extra ?? []) if (e) addBoth(e, "user");
+  addBoth(`http://${DEFAULT_HA_HOST}:${HA_PORT}`, "probe");
   const mdns = opts.skipMdns ? [] : await browseMdns(opts.mdnsMs ?? 3000);
   for (const f of mdns) add(f.url, "mdns", f);
-  addBoth("http://homeassistant.local:8123", "probe");
+  addBoth(`http://${MDNS_HA_HOST}:${HA_PORT}`, "probe");
 
   const checked = await Promise.all(
     [...candidates.values()].map(async (c) => {
@@ -121,33 +123,45 @@ export async function findHomeAssistant(
  * Poll until Home Assistant Core answers (onboarding page or already set up). On HA OS the first boot
  * shows a "Preparing Home Assistant" landing page for 10–20 minutes while Core (~700 MB) downloads;
  * that counts as not ready yet. `onTick` gets the elapsed seconds, the state and (while preparing)
- * the Supervisor's progress text.
+ * the Supervisor's progress text. Supports single URL or multiple candidates.
  */
 export async function waitForHa(
-  url: string,
+  target: string | string[],
   opts: {
     timeoutMs?: number;
     intervalMs?: number;
     fetchImpl?: typeof fetch;
     onTick?: (elapsedS: number, state: "unreachable" | "preparing", progress?: string) => void;
+    onFound?: (url: string) => void;
   } = {},
 ): Promise<string | false> {
-  // Also watch the same host on the other port (8123 <-> 80): newer HA OS answers on port 80.
-  const client = new HaClient(url, { fetchImpl: opts.fetchImpl });
-  const altUrl = alternateHaUrl(url);
-  const alt = altUrl ? new HaClient(altUrl, { fetchImpl: opts.fetchImpl }) : undefined;
+  const targets = Array.isArray(target) ? target : [target];
+  const list: string[] = [];
+  for (const t of targets) {
+    if (!list.includes(t)) list.push(t);
+    const alt = alternateHaUrl(t);
+    if (alt && !list.includes(alt)) list.push(alt);
+  }
+  const clients = list.map((u) => ({ url: u, client: new HaClient(u, { fetchImpl: opts.fetchImpl }) }));
   const start = Date.now();
   const timeout = opts.timeoutMs ?? 20 * 60_000;
   for (;;) {
-    const s = await client.onboardingStatus();
-    if (s.state === "onboarding" || s.state === "onboarded") return url;
-    if (alt && s.state === "unreachable") {
-      const a = await alt.onboardingStatus();
-      if (a.state === "onboarding" || a.state === "onboarded") return altUrl!;
+    let bestState: "unreachable" | "preparing" = "unreachable";
+    let progressText: string | undefined;
+    for (const c of clients) {
+      const s = await c.client.onboardingStatus();
+      if (s.state === "onboarding" || s.state === "onboarded") {
+        opts.onFound?.(c.url);
+        return c.url;
+      }
+      if (s.state === "preparing") {
+        bestState = "preparing";
+        progressText = await c.client.preparingProgress();
+      }
     }
     const elapsed = Date.now() - start;
     if (elapsed > timeout) return false;
-    opts.onTick?.(Math.round(elapsed / 1000), s.state, s.state === "preparing" ? await client.preparingProgress() : undefined);
+    opts.onTick?.(Math.round(elapsed / 1000), bestState, progressText);
     await new Promise((r) => setTimeout(r, opts.intervalMs ?? 5000));
   }
 }

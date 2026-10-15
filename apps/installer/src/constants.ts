@@ -26,6 +26,14 @@ export const HOMEPANEL_APP_SLUG_SUFFIX = "_homepanel";
 export const HOMEPANEL_RAW_BASE =
   process.env.HOMEPANEL_RAW_BASE ?? "https://raw.githubusercontent.com/theCommitWhisperer/homepanel/main";
 
+/**
+ * Where Home Assistant is expected when nothing is saved yet. A fixed IP is tried first because mDNS
+ * (homeassistant.local) doesn't work on every router/OS; the mDNS name is the fallback.
+ * Override with HOMEPANEL_HA_HOST. Change the saved address any time with `homepanel ha-address`.
+ */
+export const DEFAULT_HA_HOST = process.env.HOMEPANEL_HA_HOST?.trim() || "192.168.1.81";
+export const MDNS_HA_HOST = "homeassistant.local";
+
 export const HA_PORT = 8123;
 export const SERVER_PORT = 8080;
 export const MQTT_PORT = 1883;

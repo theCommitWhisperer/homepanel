@@ -9,7 +9,8 @@ pcId: gaming-pc
 name: 'Gaming PC'
 
 mqtt:
-  url: 'mqtt://homeassistant.local:1883'          # the Mosquitto broker (Home Assistant's Mosquitto app)
+  url: 'mqtt://192.168.1.81:1883'          # the Mosquitto broker (Home Assistant's Mosquitto app)
+  fallbackHosts: ['homeassistant.local']   # tried if 192.168.1.81 is unreachable
   username: 'homepanel'
   password: 'change-me'
 
