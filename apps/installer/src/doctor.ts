@@ -23,9 +23,9 @@ export async function runChecks(store: StateStore, fetchImpl: typeof fetch = glo
     checks.push({ name: "Home Assistant address", ok: false, detail: "not configured", fix: "Run `homepanel setup` (step: detect)." });
   } else {
     const client = new HaClient(st.haUrl, { fetchImpl, token: sec.haToken });
-    const s = await client.onboardingStatus();
+    const s = await client.onboardingStatus(2500);
     if (s.state === "unreachable") {
-      const alt = await findReachableHa(fetchImpl, st.haUrl);
+      const alt = await findReachableHa(fetchImpl, st.haUrl, 1500);
       const hint = alt && alt !== st.haUrl ? ` (found Home Assistant answering at ${alt})` : "";
       const fix =
         alt && alt !== st.haUrl

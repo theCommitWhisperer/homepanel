@@ -49,7 +49,11 @@ beforeAll(() => {
   write(join(hw, "hwmon10", "temp2_input"), "58000");
   write(join(hw, "hwmon10", "temp2_label"), "Core 0");
   // a stray non-hwmon entry is ignored
-  symlinkSync(join(hw, "hwmon1"), join(hw, "notahwmon"));
+  try {
+    symlinkSync(join(hw, "hwmon1"), join(hw, "notahwmon"));
+  } catch {
+    mkdirSync(join(hw, "notahwmon"), { recursive: true });
+  }
 });
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 

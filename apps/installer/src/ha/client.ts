@@ -202,17 +202,17 @@ export class HaClient {
    * GET /api/onboarding (no auth). While onboarding it lists the steps; once onboarding is
    * finished the endpoint no longer exists (404) or needs auth (401).
    */
-  async onboardingStatus(): Promise<OnboardingStatus> {
+  async onboardingStatus(timeoutMs = 4000): Promise<OnboardingStatus> {
     let res: Response;
     try {
-      res = await this.fetchImpl(this.url + "/api/onboarding", { signal: AbortSignal.timeout(5000) });
+      res = await this.fetchImpl(this.url + "/api/onboarding", { signal: AbortSignal.timeout(timeoutMs) });
     } catch (e) {
       const err = e as Error & { cause?: { code?: string } };
       return { state: "unreachable", error: err.cause?.code ?? err.message };
     }
     // 404/401: either onboarding is finished, or this is HA OS's "Preparing Home Assistant" landing page,
     // which answers 401 on every /api/ path while Core downloads. Core always answers /auth/providers with JSON.
-    if (res.status === 404 || res.status === 401) return (await this.coreAnswers()) ? { state: "onboarded" } : { state: "preparing" };
+    if (res.status === 404 || res.status === 401) return (await this.coreAnswers(timeoutMs)) ? { state: "onboarded" } : { state: "preparing" };
     if (!res.ok) return { state: "unreachable", error: `HTTP ${res.status}` };
     const steps = (await res.json().catch(() => [])) as { step: string; done: boolean }[];
     if (Array.isArray(steps) && steps.length && steps.every((s) => s.done)) return { state: "onboarded" };
@@ -220,9 +220,9 @@ export class HaClient {
   }
 
   /** True when Home Assistant Core itself (not the HA OS landing page) answers: /auth/providers is JSON. */
-  async coreAnswers(): Promise<boolean> {
+  async coreAnswers(timeoutMs = 4000): Promise<boolean> {
     try {
-      const r = await this.fetchImpl(this.url + "/auth/providers", { signal: AbortSignal.timeout(5000) });
+      const r = await this.fetchImpl(this.url + "/auth/providers", { signal: AbortSignal.timeout(timeoutMs) });
       // 200 = list of providers; 400 {code: "onboarding_required"} before the owner exists
       if (r.status !== 200 && r.status !== 400) return false;
       const j = await r.json().catch(() => undefined);

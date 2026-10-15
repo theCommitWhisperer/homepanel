@@ -23,9 +23,9 @@ export function haCandidates(saved?: string): string[] {
 }
 
 /** First candidate that answers HTTP (any onboarding state), or undefined. Tried in parallel. */
-export async function findReachableHa(fetchImpl: typeof fetch, saved?: string): Promise<string | undefined> {
+export async function findReachableHa(fetchImpl: typeof fetch, saved?: string, timeoutMs = 2000): Promise<string | undefined> {
   const list = haCandidates(saved);
-  const res = await Promise.all(list.map((u) => new HaClient(u, { fetchImpl }).onboardingStatus()));
+  const res = await Promise.all(list.map((u) => new HaClient(u, { fetchImpl }).onboardingStatus(timeoutMs)));
   return list.find((_, i) => res[i]!.state !== "unreachable");
 }
 

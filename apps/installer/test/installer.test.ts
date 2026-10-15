@@ -271,7 +271,7 @@ describe("doctor", () => {
     checks = await runChecks(store);
     expect(checks.find((c) => c.name === "Home Assistant reachable")!.ok).toBe(false);
     expect(checks.find((c) => c.name === "HomePanel server")!.ok).toBe(false);
-  });
+  }, 15_000);
 });
 
 describe("already-onboarded HA, env file, ZHA and health", () => {
