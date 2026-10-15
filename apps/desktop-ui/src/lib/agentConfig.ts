@@ -44,8 +44,13 @@ const TYPE_FIELDS: Record<ActionType, (keyof ActionDraft)[]> = {
 
 export const ACTION_ID = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 
+/** Line endings of the file each document came from (Windows files written by Notepad use CRLF). */
+const EOL = new WeakMap<Document, "\r\n" | "\n">();
+
 export function parseAgentYaml(text: string): { doc: Document; error?: string } {
-  const doc = parseDocument(text, { keepSourceTokens: false });
+  const crlf = text.includes("\r\n");
+  const doc = parseDocument(crlf ? text.replace(/\r\n/g, "\n") : text, { keepSourceTokens: false });
+  EOL.set(doc, crlf ? "\r\n" : "\n");
   liftTrailingComments(doc);
   const err = doc.errors[0];
   return err ? { doc, error: err.message.split("\n")[0] } : { doc };
@@ -75,7 +80,8 @@ function liftTrailingComments(doc: Document) {
 
 export function stringify(doc: Document): string {
   // lineWidth 0: never fold long lines, so one-line flow maps stay on one line
-  return doc.toString({ lineWidth: 0, flowCollectionPadding: true });
+  const out = doc.toString({ lineWidth: 0, flowCollectionPadding: true });
+  return EOL.get(doc) === "\r\n" ? out.replace(/\n/g, "\r\n") : out;
 }
 
 function actionsMap(doc: Document, create: boolean): YAMLMap | undefined {

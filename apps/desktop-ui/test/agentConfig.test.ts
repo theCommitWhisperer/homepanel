@@ -130,3 +130,12 @@ describe("helpers", () => {
     expect(errorsByAction(["actions.foo.url: must be a URL", "key: too short"])).toEqual({ byId: { foo: ["url: must be a URL"] }, general: ["key: too short"] });
   });
 });
+
+describe("agent.yaml line endings", () => {
+  it("keeps CRLF files CRLF (Windows / Notepad)", async () => {
+    const { parseAgentYaml, stringify } = await import("../src/lib/agentConfig");
+    const src = "pcId: gaming-pc\r\n# buttons\r\nactions:\r\n  lock: { label: Lock, type: system, command: lock }\r\n";
+    const { doc } = parseAgentYaml(src);
+    expect(stringify(doc)).toBe(src);
+  });
+});
