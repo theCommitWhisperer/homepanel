@@ -23,7 +23,7 @@ Examples:
 `;
 
 /** Installer subcommands passed straight through. */
-const INSTALLER_COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "host-key"]);
+const INSTALLER_COMMANDS = new Set(["setup", "doctor", "steps", "screens", "agent-key", "host-key", "ha-address"]);
 
 export type Plan =
   | { kind: "ui"; argv: string[]; doubleClick: boolean }
