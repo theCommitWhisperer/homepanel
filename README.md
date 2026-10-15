@@ -10,9 +10,12 @@ define; a setup wizard (with an optional AI guide) installs and connects everyth
    [latest release](https://github.com/theCommitWhisperer/homepanel/releases/latest).
 2. Double-click it. The exe isn't code-signed yet, so Windows SmartScreen may say
    "Windows protected your PC": click **More info → Run anyway**, then allow the admin prompt.
-3. Answer the wizard's questions. Pick **Host on this PC** for the fastest setup (server, MQTT broker
-   and this PC's agent, all local; it installs Mosquitto and LibreHardwareMonitor with winget after
-   showing you exactly what it will do), or **Join this PC to my HomePanel** on your other PCs.
+3. The HomePanel window opens with a **system check** (this PC, Home Assistant, the HomePanel app,
+   sensors) and a **recommended next step**: one button. Typically **Host on this PC** for the fastest
+   setup (server, MQTT broker and this PC's agent, all local; it installs Mosquitto and
+   LibreHardwareMonitor with winget after showing you exactly what it will do), or **Join this PC to my
+   HomePanel** on your other PCs. Afterwards the same window is the **control panel** (status, logs,
+   buttons editor), reachable from the tray icon without another admin prompt.
 4. On each screen (iPad, Fire tablet, monitor), open `http://<that-pc>:8080`, then approve its
    6-digit code in **Admin → Screens**.
 
@@ -21,7 +24,8 @@ No Node, pnpm or git needed: everything is inside the one exe. It also runs by h
 | Command | What |
 | --- | --- |
 | `HomePanel-Setup.exe server --demo` | Try it with fake devices, then open http://localhost:8080/?token=demo (admin password `demo`) |
-| `HomePanel.exe setup` | Run the wizard again (the installer copies itself to `C:\Program Files\HomePanel\HomePanel.exe`) |
+| `HomePanel.exe` | The HomePanel window: system check, setup, control (the installer copies itself to `C:\Program Files\HomePanel\HomePanel.exe`) |
+| `HomePanel.exe setup --console` | The same setup as a terminal wizard |
 | `HomePanel.exe agent list-sensors` | Show this PC's temperatures |
 | `HomePanel.exe host-key 192.168.1.251` | Show a host's SSH key fingerprint (compare before trusting your Proxmox host) |
 | `HomePanel.exe --help` | Everything else |
@@ -72,6 +76,9 @@ pnpm --filter @homepanel/desktop sea      # → apps/desktop/dist/HomePanel(.exe
 ```
 
 Without packaging, the same bundle runs with plain Node: `node apps/desktop/dist/homepanel.cjs server --demo`.
+The window works on Linux too, against a simulated Windows PC + Home Assistant:
+`node apps/desktop/dist/homepanel.cjs ui --no-open --fake` prints its address (`--fake=<scenario>`:
+kevin, fresh, proxmox, preparing, ha-down, token-expired, ready-to-move, done, second-pc, host-broken).
 Pushes to `main` build `HomePanel-Setup.exe` in GitHub Actions (artifact) and publish a release when
 `apps/desktop/package.json` has a new version; CI also builds the Home Assistant app image and checks `/api/health`.
 

@@ -17,6 +17,7 @@ import {
   x86FlashScript,
 } from "../guides.js";
 import type { HostType } from "../state.js";
+import { hooks } from "../bridge/hooks.js";
 import { randomPassword, showCmd, type Exec } from "../sys.js";
 import { HaClient } from "../ha/client.js";
 import { setupProxmox } from "../proxmox/setup.js";
@@ -242,9 +243,13 @@ export async function downloadFile(fetchImpl: typeof fetch, url: string, dest: s
   const src = Readable.fromWeb(res.body as any);
   src.on("data", (c: Buffer) => {
     got += c.length;
-    if (total && onProgress) {
+    if (total) {
       const pct = Math.floor((got / total) * 100);
-      if (pct !== lastPct && pct % 5 === 0) onProgress((lastPct = pct));
+      if (pct !== lastPct) {
+        hooks().progress?.({ label: `Downloading ${url.split("/").pop()}`, pct });
+        if (onProgress && pct % 5 === 0) onProgress(pct);
+        lastPct = pct;
+      }
     }
   });
   await pipeline(src, createWriteStream(dest));

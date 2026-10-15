@@ -121,6 +121,38 @@ jobs:
             Get-Content server.err -Tail 20 -ErrorAction SilentlyContinue
           }
 
+      - name: Smoke test (window server, simulated PC)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = (Resolve-Path $env:EXE).Path
+          $work = Join-Path $env:RUNNER_TEMP 'hp-ui-smoke'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          Set-Location $work
+          $p = Start-Process -FilePath $exe -ArgumentList 'ui','--no-open','--fake' -PassThru -NoNewWindow `
+            -RedirectStandardOutput ui.log -RedirectStandardError ui.err
+          try {
+            $url = $null
+            for ($i = 0; $i -lt 60 -and -not $url; $i++) {
+              Start-Sleep -Seconds 1
+              $m = Select-String -Path ui.log -Pattern 'HomePanel window: (http://127\.0\.0\.1:\d+/)#k=(\S+)' -ErrorAction SilentlyContinue | Select-Object -First 1
+              if ($m) { $url = $m.Matches[0].Groups[1].Value; $secret = $m.Matches[0].Groups[2].Value }
+            }
+            if (-not $url) { throw "ui --no-open did not print its address" }
+            $h = @{ 'x-hp-ui' = $secret }
+            $index = Invoke-WebRequest -UseBasicParsing $url
+            if ($index.Content -notmatch '<title>HomePanel') { throw "window page not served" }
+            try { Invoke-WebRequest -UseBasicParsing "$($url)api/control/status" | Out-Null; throw "API answered without the secret" } catch { if ($_.Exception.Response.StatusCode.value__ -ne 401) { throw } }
+            $info = Invoke-RestMethod -Headers $h "$($url)api/ui/info"
+            $pre = Invoke-RestMethod -Headers $h "$($url)api/setup/precheck"
+            if ($pre.recommendation.mode -ne 'ha') { throw "unexpected recommendation $($pre.recommendation | ConvertTo-Json)" }
+            $st = Invoke-RestMethod -Headers $h "$($url)api/control/status"
+            Write-Host "ui OK: version $($info.version), $($pre.checks.Count) checks, role $($st.role)"
+          } finally {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            Get-Content ui.log -Tail 20 -ErrorAction SilentlyContinue
+            Get-Content ui.err -Tail 20 -ErrorAction SilentlyContinue
+          }
+
       - name: Checksum
         if: always()
         run: |

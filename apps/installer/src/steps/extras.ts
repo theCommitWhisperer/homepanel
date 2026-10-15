@@ -42,8 +42,11 @@ export const zigbeeStep: Step = {
   async run(ctx) {
     const { out, prompt } = ctx;
     const d = await this.detect(ctx);
-    out.info(d.detail);
-    if (d.done) return "done";
+    // runStep already printed the detect result; only say it again when it changed to done
+    if (d.done) {
+      out.ok(d.detail);
+      return "done";
+    }
     out.steps([
       "Plug the ZBT-1 into a USB 2 port if you have one, using a USB extension cable so the stick sits 0.5–1 m away from the computer.",
       ctx.store.state.hostType === "vm-windows" || ctx.store.state.hostType === "nas-proxmox" || ctx.store.state.hostType === "proxmox"

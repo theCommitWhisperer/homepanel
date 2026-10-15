@@ -181,7 +181,7 @@ describe("Host on this PC (fake Windows)", () => {
   });
 
   it("interactive: one up-front choice, then y/N per step; declining changes nothing", async () => {
-    const steps = hostSteps("win32").length; // program step is already done (not SEA)
+    const steps = hostSteps("win32").length - 1; // program + tray steps are already done (not SEA)
     const prompt = scriptedPrompter(["ask", ...Array(steps - 1).fill(false)]);
     const { ctx, ops } = fakeCtx({ root, prompt });
     expect(await hostFlow(ctx)).toBe(0);

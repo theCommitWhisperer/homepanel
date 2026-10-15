@@ -1,6 +1,7 @@
 import { saveHaUrl } from "./detect.js";
 import { HaClient, HaError, type CoreLocation } from "../ha/client.js";
 import { waitForHa } from "../ha/discover.js";
+import { hooks } from "../bridge/hooks.js";
 import { detectHaOs } from "./detect.js";
 import type { Step, StepContext } from "./types.js";
 
@@ -110,6 +111,15 @@ export const onboardStep: Step = {
       timeoutMs: 30 * 60_000,
       intervalMs: ctx.noWait ? 1 : 5000,
       onTick: (s, state, progress) => {
+        const pct = progress ? /(\d+)%/.exec(progress)?.[1] : undefined;
+        hooks().progress?.({
+          stepId: "onboard",
+          label:
+            state === "preparing"
+              ? `Home Assistant is preparing… ${Math.max(1, Math.round(s / 60))} min${progress ? ` — ${progress}` : ""}`
+              : `Waiting for Home Assistant to answer… ${Math.max(1, Math.round(s / 60))} min`,
+          ...(pct ? { pct: Number(pct) } : {}),
+        });
         if (state !== lastState) {
           lastState = state;
           out.info(state === "preparing" ? "Home Assistant OS is preparing (downloading and installing Home Assistant)…" : "Not answering yet (the VM may still be booting)…");

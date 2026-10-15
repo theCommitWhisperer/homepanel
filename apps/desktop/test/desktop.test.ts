@@ -7,7 +7,15 @@ import { plan } from "../src/commands.js";
 import { appDirCandidates, MARKER, pickAppDir } from "../src/runtime.js";
 
 describe("plan", () => {
-  it("double-click runs setup", () => expect(plan([])).toEqual({ kind: "installer", argv: ["setup"] }));
+  it("double-click opens the window; ui and tray subcommands", () => {
+    expect(plan([])).toEqual({ kind: "ui", argv: [], doubleClick: true });
+    expect(plan(["ui", "--no-open", "--fake"])).toEqual({ kind: "ui", argv: ["--no-open", "--fake"], doubleClick: false });
+    expect(plan(["tray"])).toEqual({ kind: "tray", argv: [] });
+  });
+  it("setup --console is the terminal wizard", () => {
+    expect(plan(["setup", "--console"])).toEqual({ kind: "installer", argv: ["setup"] });
+    expect(plan(["setup", "--mode", "host", "--console"])).toEqual({ kind: "installer", argv: ["setup", "--mode", "host"] });
+  });
   it("passes installer commands through", () => {
     expect(plan(["setup", "--plain"])).toEqual({ kind: "installer", argv: ["setup", "--plain"] });
     expect(plan(["doctor"])).toEqual({ kind: "installer", argv: ["doctor"] });

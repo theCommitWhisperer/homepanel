@@ -9,6 +9,7 @@ import { systemInfo } from "./sys.js";
 import { color, memoryOut, teeOut } from "./ui.js";
 import { runStep } from "./wizard.js";
 import { healthSummary } from "./steps/finish.js";
+import { hooks } from "./bridge/hooks.js";
 
 export const SYSTEM_PROMPT = `You are the HomePanel setup guide, running inside the \`homepanel setup\` command on the user's computer.
 HomePanel is a self-hosted dashboard for wall tablets and screens, built on Home Assistant (HA).
@@ -204,6 +205,7 @@ export async function chooseProvider(ctx: StepContext, fetchImpl?: typeof fetch)
 /** Interactive chat loop. Type 'exit' to leave, 'wizard' to switch to the plain wizard. */
 export async function aiGuide(ctx: StepContext, opts: GuideOptions): Promise<"exit" | "wizard"> {
   const { out, prompt } = ctx;
+  const h = hooks();
   const assistant = new Assistant({
     provider: opts.provider,
     system: SYSTEM_PROMPT,
@@ -216,7 +218,11 @@ export async function aiGuide(ctx: StepContext, opts: GuideOptions): Promise<"ex
   out.info("Chat with the guide. Type 'wizard' for the plain wizard, 'exit' to stop. Progress is saved either way.");
   let printed = 0;
   const show = (msgs: ChatMessage[]) => {
-    for (const m of msgs.slice(printed)) if (m.role === "assistant") out.line(`\n${color.magenta("guide")} ${m.content}\n`);
+    for (const m of msgs.slice(printed))
+      if (m.role === "assistant") {
+        if (h.ai) h.ai("assistant", m.content);
+        else out.line(`\n${color.magenta("guide")} ${m.content}\n`);
+      }
     printed = msgs.length;
   };
 
@@ -244,13 +250,14 @@ export async function aiGuide(ctx: StepContext, opts: GuideOptions): Promise<"ex
       if (next === "wizard" || next === "exit") return next;
     }
     if (reply.pending) {
+      h.ai?.("tool", reply.pending.summary);
       out.line(color.bold(color.yellow("The guide wants to:")));
       out.line("  " + reply.pending.summary);
       const yes = await prompt.confirm({ message: "Go ahead? (y/N)", default: false });
       reply = yes ? await assistant.approve(reply.pending.callId) : await assistant.reject(reply.pending.callId);
       continue;
     }
-    const text = (await prompt.input({ message: color.cyan("you") })).trim();
+    const text = (h.chat ? await h.chat() : await prompt.input({ message: color.cyan("you") })).trim();
     if (!text) continue;
     if (/^(exit|quit|bye)$/i.test(text)) return "exit";
     if (/^wizard$/i.test(text)) return "wizard";

@@ -9,8 +9,10 @@ questions, and ends up with a working system. No Node, pnpm or git needed on his
 
 | Invocation | Does |
 | --- | --- |
-| `HomePanel.exe` (double-click, no args) | `setup` (the wizard), self-elevating to admin on Windows |
-| `HomePanel.exe setup [...]` | installer wizard (apps/installer) |
+| `HomePanel.exe` (double-click, no args) | the HomePanel window (v0.3, UI-CONTRACT.md): hands over to a running tray/window, else relaunches hidden + elevated as `ui` |
+| `HomePanel.exe ui [--no-open] [--fake[=scenario]] [--view setup\|control] [--port n]` | local UI server on 127.0.0.1 + Edge/Chrome `--app` window; exits 30 s after the window closes |
+| `HomePanel.exe tray` | UI server + tray icon (scheduled task `HomePanel Tray`, at logon, highest privileges) |
+| `HomePanel.exe setup [--console] [...]` | terminal installer wizard (apps/installer) |
 | `HomePanel.exe server [...]` | HomePanel server (apps/server); kiosk assets come from the exe |
 | `HomePanel.exe agent <cmd> [...]` | PC agent CLI (apps/agent): run, list-sensors, test-action, init, check-config |
 | `HomePanel.exe --version` | prints version |
@@ -39,7 +41,8 @@ process.execPath (node) and args = [<repo>/apps/server/dist/index.js | <repo>/ap
 
 ## Assets inside the exe
 
-The packaging owner embeds kiosk `dist/` and the agent's Windows scripts as SEA assets and, when
+The packaging owner embeds kiosk `dist/`, the desktop window (`apps/desktop-ui/dist`, optional: a
+placeholder page is served when it was not built) and the agent's Windows scripts as SEA assets and, when
 `HomePanel.exe server` starts, extracts them (once per version) to
 `%ProgramData%\HomePanel\app\<version>\{kiosk,agent}` (Linux/mac: `~/.homepanel/app/<version>`) and sets
 `KIOSK_DIST` / `AGENT_DIST` before calling the server's `main`. The server serves the running exe at
@@ -53,7 +56,11 @@ The packaging owner embeds kiosk `dist/` and the agent's Windows scripts as SEA 
 - `%ProgramData%\HomePanel\mosquitto\` (config + password file when the broker is local)
 - Scheduled tasks: `HomePanel Server` (at startup, SYSTEM, restart on failure), `HomePanel Agent`
   (at logon, the user, highest privileges — needs the desktop), `HomePanel Sensors` (starts
-  LibreHardwareMonitor minimized at logon, elevated).
+  LibreHardwareMonitor minimized at logon, elevated), `HomePanel Tray` (v0.3: at logon, the user,
+  highest privileges, `conhost --headless HomePanel.exe tray`; registered by Host and Join).
+- `%ProgramData%\HomePanel\ui.json` + `ui.secret` (v0.3): port/pid of the running window or tray and
+  its handoff token (readable by admins + the signed-in user) for single-instance handoff.
+- `%ProgramData%\HomePanel\logs\{server,agent,ui,tray}.log`.
 - Firewall rules: TCP 8080 (server) and 1883 (MQTT, private profile only) inbound.
 
 ## Setup modes (installer)

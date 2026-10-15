@@ -21,6 +21,7 @@ import { saveHaUrl } from "../steps/detect.js";
 import type { StepContext } from "../steps/types.js";
 import type { Out } from "../ui.js";
 import { color } from "../ui.js";
+import { hooks } from "../bridge/hooks.js";
 import { HostKeyRejected, hostKeyFile, ssh2Connect, type HostKeyInfo, type SshConnect, type SshSession } from "./ssh.js";
 
 export const ZBT1_USB_ID = "10c4:ea60";
@@ -653,6 +654,7 @@ async function waitForVmIp(ctx: StepContext, d: ProxmoxDeps, s: SshSession, id: 
     if (i >= tries) return undefined;
     const elapsedS = Math.round(((i + 1) * d.pollMs) / 1000);
     if (i > 0 && (i * d.pollMs) % 30_000 < d.pollMs) out.info(`still booting… ${elapsedS} s`);
+    hooks().progress?.({ label: `Waiting for the VM's IP address… ${elapsedS} s`, pct: Math.round((i / tries) * 100) });
     await d.sleep(d.pollMs);
   }
 }

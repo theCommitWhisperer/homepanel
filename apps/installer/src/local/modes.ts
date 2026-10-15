@@ -12,6 +12,7 @@ import { isSea, runningExe } from "../runtime.js";
 import { normalizeServerUrl, ServerApi } from "./api.js";
 import {
   MQTT_USER,
+  announceSteps,
   defaultPaths,
   chooseAskMode,
   findServers,
@@ -66,6 +67,7 @@ export async function hostFlow(ctx: LocalCtx): Promise<number> {
   ctx.store.updateLocal({ mode: "host", serverUrl: `http://127.0.0.1:${SERVER_PORT}`, mqttHost: "127.0.0.1", mqttUser: MQTT_USER });
   await ctx.ops.restrictAcl(ctx.paths.setupDir, { dir: true });
   const steps = hostSteps(ctx.ops.platform);
+  announceSteps(steps, "host");
   if (!(await chooseAskMode(ctx, steps.map((s) => s.title)))) return 0;
   const res = await runLocalSteps(ctx, steps, "host");
   printSummary(ctx, res, "host");
@@ -105,6 +107,7 @@ export async function joinFlow(ctx: LocalCtx, o: { server?: string } = {}): Prom
   const { out, prompt, store } = ctx;
   out.heading("Join this PC to my HomePanel");
   out.line("  Adds this PC's temperatures, drives and buttons to a HomePanel server that runs on another computer.");
+  announceSteps(joinSteps(ctx.ops.platform), "join");
   const url = await pickServer(ctx, o.server);
   if (!url) return 0;
   const s = new ServerApi(url, ctx.fetchImpl);
@@ -168,6 +171,7 @@ export async function joinFlow(ctx: LocalCtx, o: { server?: string } = {}): Prom
   await ctx.ops.restrictAcl(ctx.paths.setupDir, { dir: true });
 
   const steps = joinSteps(ctx.ops.platform);
+  announceSteps(steps, "join");
   if (!(await chooseAskMode(ctx, steps.map((x) => x.title)))) return 0;
   const res = await runLocalSteps(ctx, steps, "join");
   printSummary(ctx, res, "join");

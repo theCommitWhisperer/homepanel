@@ -10,6 +10,8 @@ export const REPO = join(import.meta.dirname, "..", "..", "..");
 const SOURCES = [
   ["pnpm-workspace.yaml", true], // marker for the installer's findRepoRoot()
   ["apps/kiosk/dist", true],
+  // the HomePanel window (UI-CONTRACT.md); without it the UI server shows a placeholder page
+  ["apps/desktop-ui/dist", false],
   ["apps/agent/dist/windows", true],
   ["apps/server/data-example", true],
   ["docs", true],
@@ -29,6 +31,7 @@ export function collectAssets() {
     const abs = join(REPO, rel);
     if (!existsSync(abs)) {
       if (required) throw new Error(`missing ${rel} — run \`pnpm -r build\` first`);
+      if (rel === "apps/desktop-ui/dist") console.warn(`warning: ${rel} not built yet — HomePanel.exe will show a placeholder page in its window`);
       continue;
     }
     walk(abs, files);

@@ -29,6 +29,7 @@ import {
 } from "./files.js";
 import type { TaskSpec, WinOps } from "./ops.js";
 import { firewallRulePs, icaclsArgs, loopingCmd, registerTaskPs, serviceEnvPs, winCmdLine } from "./ps.js";
+import { beforeFromStep, hooks } from "../bridge/hooks.js";
 
 export const LHM_ID = "LibreHardwareMonitor.LibreHardwareMonitor";
 export const PAWNIO_ID = "namazso.PawnIO";
@@ -36,6 +37,7 @@ export const MOSQUITTO_ID = "EclipseFoundation.Mosquitto";
 export const TASK_SERVER = "HomePanel Server";
 export const TASK_AGENT = "HomePanel Agent";
 export const TASK_SENSORS = "HomePanel Sensors";
+export const TASK_TRAY = "HomePanel Tray";
 export const MQTT_USER = "homepanel";
 export const LHM_URL = "http://localhost:8085/data.json";
 
@@ -169,9 +171,11 @@ function writeText(p: string, text: string, secret = false) {
 
 async function poll(ctx: LocalCtx, budgetMs: number, test: () => Promise<boolean>, onTick?: (s: number) => void): Promise<boolean> {
   const n = Math.max(1, Math.ceil(budgetMs / ctx.timeouts.pollMs));
+  const h = hooks();
   for (let i = 0; i < n; i++) {
     if (await test()) return true;
     if (onTick && i > 0 && i % 5 === 0) onTick(Math.round((i * ctx.timeouts.pollMs) / 1000));
+    h.progress?.({ label: `Waiting… ${Math.round((i * ctx.timeouts.pollMs) / 1000)} s of ${Math.round(budgetMs / 1000)} s`, pct: Math.round((i / n) * 100) });
     await ctx.sleep(ctx.timeouts.pollMs);
   }
   return test();
@@ -958,6 +962,52 @@ export const agentTaskStep: LocalStep = {
 };
 
 /* ------------------------------------------------------------------ */
+/* step: tray icon                                                      */
+/* ------------------------------------------------------------------ */
+
+function trayTask(ctx: LocalCtx, exe: string, user: string): TaskSpec {
+  const sys = process.env.SystemRoot ?? "C:\\Windows";
+  return {
+    name: TASK_TRAY,
+    description: "HomePanel tray icon: opens the HomePanel window (setup, status, buttons) without asking for administrator rights each time.",
+    // conhost --headless: no console window; the tray shows its own icon
+    file: join(sys, "System32", "conhost.exe"),
+    args: ["--headless", exe, "tray"],
+    workingDir: ctx.paths.dataRoot,
+    trigger: "logon",
+    user,
+    delayS: 15,
+  };
+}
+
+export const trayTaskStep: LocalStep = {
+  id: "tray",
+  title: `Tray icon at logon ("${TASK_TRAY}")`,
+  why: "Opens HomePanel from the tray (^ next to the clock) without a permission prompt every time.",
+  async detect(ctx) {
+    const exe = installedExe(ctx);
+    if (!isWin(ctx) || !exe) return { done: true, detail: "Only for HomePanel.exe on Windows." };
+    const t = await ctx.ops.taskInfo(TASK_TRAY);
+    if (!t.exists) return { done: false, detail: "Task not registered yet." };
+    if (!(t.args ?? "").toLowerCase().includes(exe.toLowerCase())) return { done: false, detail: "Task points at another HomePanel.exe." };
+    return { done: true, detail: `Registered (${t.state ?? "?"}).` };
+  },
+  async actions(ctx) {
+    const t = trayTask(ctx, installedExe(ctx) ?? "HomePanel.exe", await ctx.ops.interactiveUser());
+    return [`Register scheduled task "${TASK_TRAY}": at logon of ${t.user}, highest privileges, no console window:\n${registerTaskPs(t)}`, "Start it now"];
+  },
+  async run(ctx) {
+    const exe = installedExe(ctx);
+    if (!exe) return;
+    const t = trayTask(ctx, exe, await ctx.ops.interactiveUser());
+    const r = await ctx.ops.registerTask(t);
+    if (r.code !== 0) throw new FixError(`Could not register "${TASK_TRAY}": ${(r.stderr || r.stdout).trim().slice(0, 300)}`, ["Run setup as administrator, then retry."]);
+    const info = await ctx.ops.taskInfo(TASK_TRAY);
+    if (!(info.state && /running/i.test(info.state))) await ctx.ops.startTask(TASK_TRAY);
+  },
+};
+
+/* ------------------------------------------------------------------ */
 /* step: pair this PC's browser                                         */
 /* ------------------------------------------------------------------ */
 
@@ -1011,14 +1061,20 @@ export function hostSteps(platform: NodeJS.Platform): LocalStep[] {
       serverTaskStep,
       agentConfigStep,
       agentTaskStep,
+      trayTaskStep,
       pairBrowserStep,
     ];
   return [mosquittoInstallStep, mosquittoConfigStep, serverConfigStep, serverTaskStep, agentConfigStep, agentTaskStep, pairBrowserStep];
 }
 
 export function joinSteps(platform: NodeJS.Platform): LocalStep[] {
-  if (platform === "win32") return [installExeStep, lhmInstallStep, pawnioStep, lhmConfigStep, sensorsTaskStep, agentConfigStep, agentTaskStep];
+  if (platform === "win32") return [installExeStep, lhmInstallStep, pawnioStep, lhmConfigStep, sensorsTaskStep, agentConfigStep, agentTaskStep, trayTaskStep];
   return [agentConfigStep, agentTaskStep];
+}
+
+/** Send the plan to the window (before the first question, so its step list is never empty). */
+export function announceSteps(steps: LocalStep[], prefix: string): void {
+  hooks().steps?.(steps.map((s) => ({ id: `${prefix}.${s.id}`, title: s.title, summary: s.why })));
 }
 
 /** One question up front instead of thirteen: ask per step, or do them all. Returns false = quit. */
@@ -1048,10 +1104,19 @@ export interface RunResult {
 /** Run steps in order: detect → (show actions, ask) → run → on failure show the fix, retry/skip/quit. */
 export async function runLocalSteps(ctx: LocalCtx, steps: LocalStep[], prefix: string): Promise<RunResult> {
   const { out, prompt, store } = ctx;
+  const h = hooks();
+  const ids = steps.map((s) => `${prefix}.${s.id}`);
+  announceSteps(steps, prefix);
   const results: RunResult["results"] = [];
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i]!;
     const key = `${prefix}.${step.id}`;
+    if (beforeFromStep(ids, key, h.fromStep)) {
+      h.step?.(key, "skipped", "Not part of this run (started at a later step).");
+      results.push({ id: step.id, title: step.title, status: store.isDone(key) ? "done" : "skipped" });
+      continue;
+    }
+    h.step?.(key, "checking");
     out.heading(`${i + 1}/${steps.length}  ${step.title}`);
     out.info(step.why);
     let d: { done: boolean; detail: string };
@@ -1064,9 +1129,11 @@ export async function runLocalSteps(ctx: LocalCtx, steps: LocalStep[], prefix: s
       out.ok(d.detail);
       store.mark(key, "done", d.detail);
       results.push({ id: step.id, title: step.title, status: "done" });
+      h.step?.(key, "done", d.detail);
       continue;
     }
     out.info(d.detail);
+    h.step?.(key, "checking", d.detail);
     out.line("  This will:");
     for (const a of await step.actions(ctx)) out.code(a);
     const go = ctx.yes || ctx.confirmAll || (await prompt.confirm({ message: "Do this now?", default: false }));
@@ -1074,10 +1141,12 @@ export async function runLocalSteps(ctx: LocalCtx, steps: LocalStep[], prefix: s
       out.info("Skipped. Run setup again any time to do it.");
       store.mark(key, "skipped");
       results.push({ id: step.id, title: step.title, status: "skipped" });
+      h.step?.(key, "skipped", "Skipped. Run setup again any time to do it.");
       continue;
     }
     let status: LocalStatus | "quit" = "failed";
     for (;;) {
+      h.step?.(key, "running");
       try {
         const r = await step.run(ctx);
         status = r === "manual" ? "manual" : "done";
@@ -1085,7 +1154,11 @@ export async function runLocalSteps(ctx: LocalCtx, steps: LocalStep[], prefix: s
         break;
       } catch (e) {
         const err = e as Error;
-        if (err.name === "ExitPromptError") throw e;
+        if (err.name === "ExitPromptError") {
+          h.step?.(key, "failed", "Stopped.");
+          throw e;
+        }
+        h.step?.(key, "failed", err.message);
         out.err(err.message);
         if (err instanceof FixError && err.fix.length) {
           out.line("  How to fix:");
@@ -1107,11 +1180,15 @@ export async function runLocalSteps(ctx: LocalCtx, steps: LocalStep[], prefix: s
     if (status === "quit") {
       store.mark(key, "failed");
       results.push({ id: step.id, title: step.title, status });
+      h.step?.(key, "failed", "Stopped here (progress is saved).");
+      h.endSteps?.();
       return { code: 1, results };
     }
     store.mark(key, status);
     results.push({ id: step.id, title: step.title, status });
+    h.step?.(key, status === "done" ? "done" : status === "manual" ? "manual" : "failed");
   }
+  h.endSteps?.();
   const failed = results.some((r) => r.status === "failed");
   return { code: failed ? 1 : 0, results };
 }

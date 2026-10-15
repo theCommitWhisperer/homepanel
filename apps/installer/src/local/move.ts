@@ -26,6 +26,8 @@ import {
   TASK_SERVER,
   agentConfigStep,
   agentTaskStep,
+  announceSteps,
+  trayTaskStep,
   chooseAskMode,
   findServers,
   runLocalSteps,
@@ -236,7 +238,8 @@ export const moveBrowserStep: LocalStep = {
 };
 
 export function moveSteps(): LocalStep[] {
-  return [moveAgentConfigStep, moveAgentTaskStep, copyLayoutsStep, retireServerStep, moveBrowserStep];
+  // the tray stays (this PC keeps its agent and the HomePanel window); added here when Host ran before v0.3
+  return [moveAgentConfigStep, moveAgentTaskStep, copyLayoutsStep, retireServerStep, trayTaskStep, moveBrowserStep];
 }
 
 /* ------------------------------------------------------------------ */
@@ -295,6 +298,7 @@ export async function moveFlow(ctx: LocalCtx, o: MoveOptions = {}): Promise<numb
     "  The HomePanel app on Home Assistant takes over, so dashboards keep working when this PC is off.\n" +
       "  This PC keeps its temperatures and buttons (its agent now reports to Home Assistant).",
   );
+  announceSteps(moveSteps(), "move");
   // an unfinished move (movedFrom set) may continue even after the local server is gone
   if (!store.state.local?.movedFrom && !(await hostsServerHere(ctx))) {
     out.info(`This PC does not run a HomePanel server (no "${TASK_SERVER}" task), so there is nothing to move.`);
@@ -375,6 +379,7 @@ export async function moveFlow(ctx: LocalCtx, o: MoveOptions = {}): Promise<numb
   await ctx.ops.restrictAcl(ctx.paths.setupDir, { dir: true });
 
   const steps = moveSteps();
+  announceSteps(steps, "move");
   if (!(await chooseAskMode(ctx, steps.map((s) => s.title)))) return 0;
   const res = await runLocalSteps(ctx, steps, "move");
   printMoveSummary(ctx, res);
